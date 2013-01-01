@@ -5,6 +5,11 @@ import de.abbaddie.rirc.connector.IrcSocketConnector
 
 object Starter {
 	def main(args: Array[String]) {
-		val ircc = Server.actorSystem.actorOf(Props[IrcSocketConnector])
+		// setup irc connector
+		val ircc = new IrcSocketConnector
+		ircc start
+
+		// setup server object
+		Server.actor = Server.actorSystem.actorOf(Props[ServerActor])
 	}
 }

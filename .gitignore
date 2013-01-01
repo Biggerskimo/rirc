@@ -1,0 +1,7 @@
+.idea
+.idea/*
+.idea_modules
+target
+target/*
+project/target
+project/target/*
