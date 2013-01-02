@@ -4,12 +4,14 @@ import akka.actor.{Props, ActorRef, Actor, ActorSystem}
 import de.abbaddie.rirc.message._
 import collection.immutable.HashMap
 import grizzled.slf4j.Logging
+import de.abbaddie.rirc.auth.AuthSystem
 
 object Server {
 	val actorSystem = ActorSystem("rirc-actors")
 	var actor : ActorRef = null
 	val eventBus = new RircEventBus
 	val events = eventBus
+	var authSys : AuthSystem = null
 
 	var channels : Map[String, Channel] = HashMap()
 	var users : Map[String, User] = HashMap()
@@ -17,7 +19,7 @@ object Server {
 }
 
 object TargetHelper {
-	def get(name : String) : Option[AnyRef] = {
+	def get(name : String) : Option[GenericTarget] = {
 		if(Server.channels contains name) Server.channels.get(name) else Server.users.get(name)
 	}
 }

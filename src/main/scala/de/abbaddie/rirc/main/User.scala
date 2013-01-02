@@ -5,7 +5,7 @@ import de.abbaddie.rirc.connector.IrcConstants
 import java.net.InetSocketAddress
 import de.abbaddie.rirc.message.UserClassifier
 
-abstract class User {
+abstract class User extends GenericTarget {
 	var nickname : String = IrcConstants.UNASSIGNED_NICK
 	var username : String = IrcConstants.UNASSIGNED_USERNAME
 	var realname : String = IrcConstants.UNASSIGNED_REALNAME

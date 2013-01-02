@@ -11,6 +11,7 @@ import akka.util.Timeout
 import java.util.concurrent.TimeUnit
 import concurrent.Await
 import concurrent.duration._
+import collection.mutable
 
 class IrcUser(val channel : NettyChannel) extends User {
 	def initActor() = Server.actorSystem.actorOf(Props(new IrcUserSystemActor(IrcUser.this)), name = uid.toString)
@@ -37,8 +38,10 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case JoinMessage(channel, joiner) =>
 			Server.eventBus.subscribe(self, ChannelClassifier(channel))
 			user.ds ! MSG_JOIN(channel, joiner)
-			user.ds ! RPL_NAMEREPLY(channel)
-			user.ds ! RPL_ENDOFNAMES(channel)
+			if (user == joiner) {
+				user.ds ! RPL_NAMEREPLY(channel)
+				user.ds ! RPL_ENDOFNAMES(channel)
+			}
 
 		case PublicTextMessage(channel, sender, message) =>
 			if(sender != user)
@@ -73,6 +76,11 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 
 		case TopicChangeMessage(channel, sender, oldTopic, newTopic) =>
 			user.ds ! MSG_TOPIC(channel, sender, newTopic)
+
+		case PrivilegeChangeMessage(channel, sender, target, priv, op) =>
+			val flag = if(op == SET) "+" else "-"
+			val char = if(priv == OP) "o" else "v"
+			user.ds ! MSG_MODE(channel, sender, flag + char, target.nickname)
 
 		case InitDummy() =>
 			user.ds = context.actorOf(Props(new IrcUserDownstreamActor(user, user.channel)), name = "ds")
@@ -152,13 +160,35 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					user.ds ! ERR_NOSUCHCHANNEL(name)
 			}
 
+		case IrcIncomingLine("MODE", name, "+b") =>
+			Server.channels get name match {
+				case Some(channel) if !channel.users.contains(user) =>
+					user.ds ! ERR_NOTONCHANNEL(channel)
+				case Some(channel) =>
+					// TODO ban list
+				case None =>
+					user.ds ! ERR_NOSUCHCHANNEL(name)
+			}
+
+		case IrcIncomingLine("MODE", name, desc, rest @_*) =>
+			Server.channels get name match {
+				case Some(channel) if !channel.users.contains(user) =>
+					user.ds ! ERR_NOTONCHANNEL(channel)
+				case Some(channel) if !channel.users(user).isOp =>
+					user.ds ! ERR_CHANOPRIVSNEEDED(channel)
+				case Some(channel) =>
+					handleModeChange(channel, desc, rest)
+				case None =>
+					user.ds ! ERR_NOSUCHCHANNEL
+			}
+
 		case IrcIncomingLine("PRIVMSG", target, message) =>
 			Server.targets get target match {
 				case Some(channel : Channel) =>
 					Server.eventBus.publish(PublicTextMessage(channel, user, message))
 				case Some(to : User) =>
 					Server.eventBus.publish(PrivateTextMessage(user, to, message))
-				case None =>
+				case _ =>
 					user.ds ! ERR_NOSUCHCHANNEL(target)
 			}
 
@@ -168,7 +198,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					Server.eventBus.publish(PublicNoticeMessage(channel, user, message))
 				case Some(to : User) =>
 					Server.eventBus.publish(PrivateNoticeMessage(user, to, message))
-				case None =>
+				case _ =>
 					// ignore
 			}
 
@@ -234,6 +264,34 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 
 		case line : IrcIncomingLine =>
 			info("Dropped incoming line from " + user.nickname + ": " + line)
+	}
+
+	private def handleModeChange(channel : Channel, desc : String, rest : Seq[String]) {
+		val queue = mutable.Queue() ++ rest
+		desc.head match {
+			case '+' =>
+				desc.tail foreach{ char => char match {
+					case 'o' | 'v' if queue.isEmpty =>
+						user.ds ! ERR_NONICKNAMEGIVEN()
+					case 'o' =>
+						handlePrivilegeChange(channel, queue.dequeue(), OP, SET)
+					case 'v' =>
+						handlePrivilegeChange(channel, queue.dequeue(), VOICE, SET)
+				}}
+			case '-' =>
+				desc.tail foreach({ char =>
+
+				})
+		}
+	}
+
+	private def handlePrivilegeChange(channel : Channel, username : String, priv : Privilege, op : PrivilegeOperation) {
+		Server.users get username match {
+			case Some(user2) if !channel.users.contains(user2) =>
+				user.ds ! ERR_USERNOTINCHANNEL(channel, user2)
+			case Some(user2) =>
+				Server.events ! PrivilegeChangeMessage(channel, user, user2, priv, op)
+		}
 	}
 }
 

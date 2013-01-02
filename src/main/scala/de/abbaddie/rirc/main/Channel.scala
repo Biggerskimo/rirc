@@ -15,7 +15,7 @@ class ChannelUserInformation(val user : User) {
 	val joined = DateTime.now
 }
 
-case class Channel(name : String) {
+case class Channel(name : String) extends GenericTarget {
 	var users : Map[User, ChannelUserInformation] = HashMap()
 	val creation = DateTime.now
 	var topic : String = null
@@ -43,6 +43,12 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 			sender ! null
 		case TopicChangeMessage(_, _, _, topic) =>
 			channel.topic = topic
+			sender ! null
+		case PrivilegeChangeMessage(_, _, user, OP, op) =>
+			channel.users(user).isOp = (op == SET)
+			sender ! null
+		case PrivilegeChangeMessage(_, _, user, VOICE, op) =>
+			channel.users(user).isVoice = (op == SET)
 			sender ! null
 		case ChannelCloseMessage(_) |
 			 ChannelCreationMessage(_, _) |

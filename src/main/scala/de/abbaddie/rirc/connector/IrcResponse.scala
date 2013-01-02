@@ -121,8 +121,11 @@ case class ERR_NOSUCHNICK(name : String) extends IrcServerResponse(401, "No such
 
 case class ERR_NOSUCHCHANNEL(name : String) extends IrcServerResponse(403, "No such channel", name)
 
+case class ERR_NONICKNAMEGIVEN() extends IrcServerResponse(431, "No nickname given")
+
 case class ERR_NICKNAMEINUSE(name : String) extends IrcServerResponse(433, "Nickname is already in use", name)
 
+case class ERR_USERNOTINCHANNEL(channel : Channel, user : User) extends IrcServerResponse(441, "They aren't on that channel", user.nickname, channel.name)
 case class ERR_NOTONCHANNEL(channel : Channel) extends IrcServerResponse(442, "You're not on that channel", channel.name)
 
 case class ERR_NOTREGISTERED() extends IrcServerResponse(451, "You have not registered")
@@ -159,3 +162,5 @@ case class MSG_NICK(user : User, oldNick : String, newNick : String) extends Irc
 }
 
 case class MSG_TOPIC(channel : Channel, user : User, topic : String) extends IrcClientResponse(user, "TOPIC", channel.name, topic)
+
+case class MSG_MODE(channel : Channel, user : User, desc : String, additional : String) extends IrcClientResponse(user, "MODE", channel.name :: desc :: additional :: Nil :_*)
