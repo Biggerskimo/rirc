@@ -18,7 +18,7 @@ class ChannelUserInformation(val user : User) {
 case class Channel(name : String) extends GenericTarget {
 	var users : Map[User, ChannelUserInformation] = HashMap()
 	val creation = DateTime.now
-	var topic : String = null
+	var topic : Option[String] = None
 
 	val actor = Server.actorSystem.actorOf(Props(new ChannelActor(Channel.this)))
 	Server.eventBus.subscribe(actor, new ChannelClassifier(Channel.this))
@@ -42,7 +42,7 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 			rmUser(user)
 			sender ! null
 		case TopicChangeMessage(_, _, _, topic) =>
-			channel.topic = topic
+			channel.topic = Some(topic)
 			sender ! null
 		case PrivilegeChangeMessage(_, _, user, OP, op) =>
 			channel.users(user).isOp = (op == SET)

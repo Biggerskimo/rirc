@@ -79,7 +79,7 @@ case class RPL_CREATIONTIME(channel : Channel) extends IrcResponse { // 329
 }
 
 case class RPL_NOTOPIC(channel : Channel) extends IrcServerResponse(331, "No topic is set", channel.name)
-case class RPL_TOPIC(channel : Channel) extends IrcServerResponse(332, channel.topic)
+case class RPL_TOPIC(channel : Channel) extends IrcServerResponse(332, channel.topic.get, channel.name)
 
 case class RPL_WHOREPLY(user : User) extends IrcResponse { // 352
 	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {

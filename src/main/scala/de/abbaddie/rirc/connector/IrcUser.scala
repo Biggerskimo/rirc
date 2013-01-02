@@ -39,6 +39,12 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			Server.eventBus.subscribe(self, ChannelClassifier(channel))
 			user.ds ! MSG_JOIN(channel, joiner)
 			if (user == joiner) {
+				channel.topic match {
+					case Some(topic) =>
+						user.ds ! RPL_TOPIC(channel)
+					case None =>
+						// no message here
+				}
 				user.ds ! RPL_NAMEREPLY(channel)
 				user.ds ! RPL_ENDOFNAMES(channel)
 			}
@@ -226,13 +232,14 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 
 		case IrcIncomingLine("TOPIC", name) =>
 			Server.channels get name match {
-				case Some(channel) =>
-					if(!channel.users.contains(user))
-						user.ds ! ERR_NOTONCHANNEL(channel)
-					else if (channel.topic == null)
-						user.ds ! RPL_NOTOPIC(channel)
-					else
+				case Some(channel) if !channel.users.contains(user) =>
+					user.ds ! ERR_NOTONCHANNEL(channel)
+				case Some(channel) => channel.topic match {
+					case Some(topic) =>
 						user.ds ! RPL_TOPIC(channel)
+					case None =>
+						user.ds ! RPL_NOTOPIC(channel)
+				}
 				case None =>
 					user.ds ! ERR_NOSUCHCHANNEL(name)
 			}
