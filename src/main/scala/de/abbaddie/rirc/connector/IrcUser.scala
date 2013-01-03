@@ -4,6 +4,7 @@ import akka.actor.{ActorRef, PoisonPill, Props, Actor}
 import akka.pattern.ask
 import de.abbaddie.rirc.main._
 import de.abbaddie.rirc.message._
+import de.abbaddie.rirc.service._
 import org.jboss.netty.channel.{Channel => NettyChannel}
 import grizzled.slf4j.Logging
 import scala.Some
@@ -12,6 +13,7 @@ import java.util.concurrent.TimeUnit
 import concurrent.Await
 import concurrent.duration._
 import collection.mutable
+import de.abbaddie.rirc.service.{AuthSuccess, AuthStart}
 
 class IrcUser(val channel : NettyChannel) extends User {
 	def initActor() = Server.actorSystem.actorOf(Props(new IrcUserSystemActor(IrcUser.this)), name = uid.toString)
@@ -87,6 +89,13 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			val flag = if(op == SET) "+" else "-"
 			val char = if(priv == OP) "o" else "v"
 			user.ds ! MSG_MODE(channel, sender, flag + char, target.nickname)
+
+		case AuthSuccess(_, account) =>
+			user.ds ! SVC_AUTHSUCCESS()
+			user.authacc = Some(account)
+
+		case AuthFailure(_, _) =>
+			user.ds ! SVC_AUTHFAILURE()
 
 		case InitDummy() =>
 			user.ds = context.actorOf(Props(new IrcUserDownstreamActor(user, user.channel)), name = "ds")
@@ -263,11 +272,15 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					user.ds ! RPL_WHOISUSER(found)
 					user.ds ! RPL_WHOISCHANNELS(found)
 					user.ds ! RPL_WHOISSERVER(found)
+					if (found.authacc.isDefined) user.ds ! RPL_WHOISACCOUNT(found)
 					user.ds ! RPL_WHOISIDLE(found)
 					user.ds ! RPL_ENDOFWHOIS(found)
 				case None =>
 					user.ds ! ERR_NOSUCHNICK(name)
 			}
+
+		case IrcIncomingLine("LOGIN", name, password) =>
+			Server.events ! AuthStart(user, name, password)
 
 		case line : IrcIncomingLine =>
 			info("Dropped incoming line from " + user.nickname + ": " + line)

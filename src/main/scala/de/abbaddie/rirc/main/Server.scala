@@ -4,14 +4,17 @@ import akka.actor.{Props, ActorRef, Actor, ActorSystem}
 import de.abbaddie.rirc.message._
 import collection.immutable.HashMap
 import grizzled.slf4j.Logging
-import de.abbaddie.rirc.auth.AuthSystem
+import de.abbaddie.rirc.service.AuthProvider
 
 object Server {
-	val actorSystem = ActorSystem("rirc-actors")
+	var actorSystem : ActorSystem = null
 	var actor : ActorRef = null
 	val eventBus = new RircEventBus
 	val events = eventBus
-	var authSys : AuthSystem = null
+
+	var authProvider : AuthProvider = null
+	var authSys : ActorRef = null
+	var systemUser : User = null
 
 	var channels : Map[String, Channel] = HashMap()
 	var users : Map[String, User] = HashMap()

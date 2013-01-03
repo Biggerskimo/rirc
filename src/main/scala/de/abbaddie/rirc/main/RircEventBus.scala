@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit
 import akka.pattern.ask
 import scala.concurrent.Future
 import grizzled.slf4j.Logging
+import de.abbaddie.rirc.service.{AuthMessage, ServiceMessage}
 
 class RircEventBus extends ActorEventBus with Logging {
 	type Event = Message
@@ -78,6 +79,15 @@ class RircEventBus extends ActorEventBus with Logging {
 		if(event.isInstanceOf[BroadcastMessage] || event.isInstanceOf[ServerMessage]) {
 			Server.actor ! event
 		}
+
+		if(event.isInstanceOf[BroadcastMessage] || event.isInstanceOf[AuthMessage]) {
+			Server.authSys ! event
+		}
+
+		if(event.isInstanceOf[BroadcastMessage] || event.isInstanceOf[ServiceMessage]) {
+			Server.systemUser.actor ! event
+		}
+
 		implicit val timeout = Timeout(1, TimeUnit.SECONDS)
 		implicit val actorSystem = Server.actorSystem.dispatcher
 

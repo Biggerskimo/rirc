@@ -78,6 +78,7 @@ case class RPL_CREATIONTIME(channel : Channel) extends IrcResponse { // 329
 	}
 }
 
+case class RPL_WHOISACCOUNT(user : User) extends IrcServerResponse(330, "is logged in as", user.nickname, user.authacc.get.name)
 case class RPL_NOTOPIC(channel : Channel) extends IrcServerResponse(331, "No topic is set", channel.name)
 case class RPL_TOPIC(channel : Channel) extends IrcServerResponse(332, channel.topic.get, channel.name)
 
@@ -138,7 +139,7 @@ abstract class IrcClientResponse(val source : User, val command : String, val pa
 		new IrcOutgoingLine(userSourceString(source), command, params : _*)
 	}
 
-	def userSourceString(user : User) = user.nickname + "!" + user.username + "@" + user.address.getHostName
+	val userSourceString = (user : User) => user.nickname + "!" + user.username + "@" + user.address.getHostName
 }
 
 case class MSG_JOIN(channel : Channel, user : User) extends IrcClientResponse(user, "JOIN", channel.name)
@@ -158,9 +159,23 @@ case class MSG_PART(channel : Channel, user : User, message : Option[String]) ex
 case class MSG_QUIT(user : User, message : Option[String]) extends IrcClientResponse(user, "QUIT", message.toSeq :_*)
 
 case class MSG_NICK(user : User, oldNick : String, newNick : String) extends IrcClientResponse(user, "NICK", newNick) {
-	override def userSourceString(user : User) = oldNick + "!" + user.username + "@" + user.address.getHostName
+	override val userSourceString = (user : User) => user.nickname + "!" + user.username + "@" + user.address.getHostName
 }
 
 case class MSG_TOPIC(channel : Channel, user : User, topic : String) extends IrcClientResponse(user, "TOPIC", channel.name, topic)
 
 case class MSG_MODE(channel : Channel, user : User, desc : String, additional : String) extends IrcClientResponse(user, "MODE", channel.name :: desc :: additional :: Nil :_*)
+
+
+/** SERVICE **/
+abstract class IrcServiceResponse(message : String) extends IrcResponse {
+	def toIrcOutgoingLine(user: IrcUser) = {
+		new IrcOutgoingLine(userSourceString(Server.systemUser), "NOTICE", user.nickname, message)
+	}
+
+	val userSourceString = (user : User) => user.nickname + "!" + user.username + "@" + user.address.getHostName
+}
+
+case class SVC_AUTHSUCCESS() extends IrcServiceResponse("Du wurdest erfolgreich angemeldet.")
+
+case class SVC_AUTHFAILURE() extends IrcServiceResponse("Die Anmeldung ist fehlgeschlagen.")
