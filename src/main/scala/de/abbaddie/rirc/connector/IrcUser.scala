@@ -14,12 +14,15 @@ import concurrent.Await
 import concurrent.duration._
 import collection.mutable
 import de.abbaddie.rirc.service.{AuthSuccess, AuthStart}
+import java.net.InetSocketAddress
 
-class IrcUser(val channel : NettyChannel) extends User {
+class IrcUser(val channel : NettyChannel, address2 : InetSocketAddress) extends User {
 	def initActor() = Server.actorSystem.actorOf(Props(new IrcUserSystemActor(IrcUser.this)), name = uid.toString)
 
 	var ds : ActorRef = null
 	var us : ActorRef = null
+
+	address = address2
 
 	// ensure ds + us
 	implicit val timeout = Timeout(1, TimeUnit.SECONDS)
@@ -93,6 +96,7 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case AuthSuccess(_, account) =>
 			user.ds ! SVC_AUTHSUCCESS()
 			user.authacc = Some(account)
+			user.isOper = account.isOper
 
 		case AuthFailure(_, _) =>
 			user.ds ! SVC_AUTHFAILURE()
@@ -197,6 +201,15 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					user.ds ! ERR_NOSUCHCHANNEL
 			}
 
+		case IrcIncomingLine("PRIVMSG", target, message) if message startsWith "!" =>
+			Server.channels get target match {
+				case Some(channel) =>
+					val parts = message split " "
+					Server.events ! ServiceCommandMessage(channel, user, parts(0).tail toLowerCase, parts.tail :_*)
+				case _ =>
+					user.ds ! ERR_NOSUCHCHANNEL(target)
+			}
+
 		case IrcIncomingLine("PRIVMSG", target, message) =>
 			Server.targets get target match {
 				case Some(channel : Channel) =>
@@ -266,7 +279,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					user.ds ! ERR_NOSUCHCHANNEL(name)
 			}
 
-		case IrcIncomingLine("WHOIS", name) =>
+		case IrcIncomingLine("WHOIS", name, rest @ _*) =>
 			Server.users get name match {
 				case Some(found) =>
 					user.ds ! RPL_WHOISUSER(found)
@@ -299,9 +312,15 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 						handlePrivilegeChange(channel, queue.dequeue(), VOICE, SET)
 				}}
 			case '-' =>
-				desc.tail foreach({ char =>
-
-				})
+				desc.tail foreach{ char => char match {
+					case 'o' | 'v' if queue.isEmpty =>
+						user.ds ! ERR_NONICKNAMEGIVEN()
+					case 'o' =>
+						handlePrivilegeChange(channel, queue.dequeue(), OP, UNSET)
+					case 'v' =>
+						handlePrivilegeChange(channel, queue.dequeue(), VOICE, UNSET)
+				}
+			}
 		}
 	}
 

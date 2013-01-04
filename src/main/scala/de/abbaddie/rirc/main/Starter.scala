@@ -17,6 +17,12 @@ object Starter {
 		Server.authProvider = new Wots2AuthProvider
 		Server.authSys = Server.actorSystem.actorOf(Props[AuthSystem])
 
+		// setup channel provider
+		Server.channelProvider = new YamlFileChannelProvider
+
+		// setup channels
+		ChannelHelper.startup()
+
 		// setup irc connector
 		val ircc = new IrcSocketConnector
 		ircc.start

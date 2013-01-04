@@ -9,3 +9,4 @@ project/target/*
 .classpath
 .project
 doc
+channels.yml

@@ -12,7 +12,6 @@ class MemoryAuthProvider extends AuthProvider {
 	implicit val dispatcher = Server.actorSystem.dispatcher
 
 	def register(user : String, password : String, mail : String) : Future[Option[String]] = {
-
 		memory get user match {
 			case Some(_) =>
 				Future(Some("There is already a user named '" + user + "'"))
@@ -23,7 +22,12 @@ class MemoryAuthProvider extends AuthProvider {
 	}
 
 	def isValid(user : String, password : String) : Future[Option[AuthAccount]] = {
-		if(memory.contains(user) && memory(user) == password) Future(Some(new AuthAccount(user, this)))
+		if(memory.contains(user) && memory(user) == password) Future(Some(new AuthAccount(user, false)))
+		else Future(None)
+	}
+
+	def lookup(user : String) = {
+		if(memory.contains(user)) Future(Some(new AuthAccount(user, false)))
 		else Future(None)
 	}
 }

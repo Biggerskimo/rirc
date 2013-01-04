@@ -21,3 +21,5 @@ libraryDependencies += "io.netty" % "netty" % "3.6.0.Final"
 libraryDependencies += "org.scalaj" % "scalaj-time_2.9.2" % "0.6"
 
 libraryDependencies += "org.mindrot" % "jbcrypt" % "0.3m"
+
+libraryDependencies += "org.yaml" % "snakeyaml" % "1.11"

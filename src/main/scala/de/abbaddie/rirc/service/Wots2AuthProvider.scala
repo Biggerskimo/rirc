@@ -5,7 +5,7 @@ import akka.actor.{ActorSystem, Actor}
 import com.typesafe.config.ConfigFactory
 import de.abbaddie.wot.rirc._
 import akka.pattern._
-import de.abbaddie.rirc.main.Server
+import de.abbaddie.rirc.main.{User, Server}
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
 import concurrent.{Promise, Future}
@@ -17,13 +17,10 @@ class Wots2AuthProvider extends AuthProvider with Logging {
 	implicit val dispatcher = Server.actorSystem.dispatcher
 	implicit val timeout = Timeout(1, TimeUnit.SECONDS)
 
-	def register(user : String, password : String, mail : String) : Future[Option[String]] = Future(Some("please register via the website."))
-
-	def isValid(user : String, password : String) : Future[Option[AuthAccount]] = {
+	protected def comInternal(user : String, password : String, checkPassword : Boolean) = {
 		remoteActor ? new AuthRequest(user) map {
-			case resp : AuthResponse if resp.found =>
-				if(BCrypt.checkpw(password, resp.hash)) Some(new AuthAccount(user, this))
-				else None
+			case resp : AuthResponse if resp.found && (!checkPassword || BCrypt.checkpw(password, resp.hash)) =>
+				Some(new AuthAccount(user, resp.isOper))
 			case resp : AuthResponse =>
 				None
 			case resp =>
@@ -31,6 +28,12 @@ class Wots2AuthProvider extends AuthProvider with Logging {
 				None
 		}
 	}
+
+	def register(user : String, password : String, mail : String) : Future[Option[String]] = Future(Some("please register via the website."))
+
+	def isValid(user : String, password : String) = comInternal(user, password, checkPassword = true)
+
+	def lookup(user : String) = comInternal(user, "", checkPassword = false)
 
 	val config = ConfigFactory.parseString("akka { actor { provider = \"akka.remote.RemoteActorRefProvider\" } }")
 	val actorSystem = ActorSystem("wots2-auth-actors", config)

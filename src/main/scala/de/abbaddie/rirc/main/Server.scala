@@ -4,7 +4,7 @@ import akka.actor.{Props, ActorRef, Actor, ActorSystem}
 import de.abbaddie.rirc.message._
 import collection.immutable.HashMap
 import grizzled.slf4j.Logging
-import de.abbaddie.rirc.service.AuthProvider
+import de.abbaddie.rirc.service.{ChannelHelper, ChannelProvider, AuthProvider}
 
 object Server {
 	var actorSystem : ActorSystem = null
@@ -14,6 +14,7 @@ object Server {
 
 	var authProvider : AuthProvider = null
 	var authSys : ActorRef = null
+	var channelProvider : ChannelProvider = null
 	var systemUser : User = null
 
 	var channels : Map[String, Channel] = HashMap()

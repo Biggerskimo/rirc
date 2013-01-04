@@ -8,6 +8,7 @@ import de.abbaddie.rirc.message.PartMessage
 import de.abbaddie.rirc.message.JoinMessage
 import de.abbaddie.rirc.message.ChannelClassifier
 import grizzled.slf4j.Logging
+import de.abbaddie.rirc.service.ChannelHelper
 
 class ChannelUserInformation(val user : User) {
 	var isOp = false
@@ -19,6 +20,7 @@ case class Channel(name : String) extends GenericTarget {
 	var users : Map[User, ChannelUserInformation] = HashMap()
 	val creation = DateTime.now
 	var topic : Option[String] = None
+	def isRegistered = Server.channelProvider.registeredChannels contains name
 
 	val actor = Server.actorSystem.actorOf(Props(new ChannelActor(Channel.this)))
 	Server.eventBus.subscribe(actor, new ChannelClassifier(Channel.this))
@@ -34,6 +36,8 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 		case JoinMessage(_, user) =>
 			channel.users += (user -> new ChannelUserInformation(user))
 			if(channel.users.size == 1) channel.users(user).isOp = true
+			if(user == Server.systemUser) channel.users(user).isOp = true
+			ChannelHelper.checkUser(channel, user)
 			sender ! null
 		case PartMessage(_, user, _) =>
 			rmUser(user)

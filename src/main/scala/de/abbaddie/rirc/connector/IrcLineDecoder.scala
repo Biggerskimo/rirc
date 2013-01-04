@@ -18,7 +18,7 @@ class IrcLineDecoder extends OneToOneDecoder with Logging {
 				var params = if(middle != null) middle.split(' ').filter(!_.isEmpty) else Array.empty[String]
 				if(trailing != null) params :+= trailing
 
-				IrcIncomingLine(command, params: _*)
+				IrcIncomingLine(command.toUpperCase, params: _*)
 			case _ =>
 				error("invalid line received")
 				null

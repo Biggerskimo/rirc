@@ -13,8 +13,7 @@ class IrcUpstreamHandler extends SimpleChannelUpstreamHandler {
 	override def messageReceived(ctx: ChannelHandlerContext, e: MessageEvent) {
 		// messageReceived may happen before channelConnected Oo, so dont use channelConnted!
 		if (user == null) {
-			user = new IrcUser(ctx.getChannel)
-			user.address = ctx.getChannel.getRemoteAddress.asInstanceOf[InetSocketAddress]
+			user = new IrcUser(ctx.getChannel, ctx.getChannel.getRemoteAddress.asInstanceOf[InetSocketAddress])
 		}
 		val readLine = e.getMessage.asInstanceOf[IrcIncomingLine]
 

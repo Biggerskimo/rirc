@@ -7,9 +7,5 @@ public class AuthResponse implements Serializable {
 	
 	public boolean found;
 	public String hash;
-	
-	public AuthResponse(boolean found, String hash) {
-		this.found = found;
-		this.hash = hash;
-	}
+	public boolean isOper;
 }
