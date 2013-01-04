@@ -3,8 +3,6 @@ package de.abbaddie.rirc.connector
 import akka.actor.{ActorRef, PoisonPill, Props, Actor}
 import akka.pattern.ask
 import de.abbaddie.rirc.main._
-import de.abbaddie.rirc.message._
-import de.abbaddie.rirc.service._
 import org.jboss.netty.channel.{Channel => NettyChannel}
 import grizzled.slf4j.Logging
 import scala.Some
@@ -13,7 +11,6 @@ import java.util.concurrent.TimeUnit
 import concurrent.Await
 import concurrent.duration._
 import collection.mutable
-import de.abbaddie.rirc.service.{AuthSuccess, AuthStart}
 import java.net.InetSocketAddress
 
 class IrcUser(val channel : NettyChannel, address2 : InetSocketAddress) extends User {

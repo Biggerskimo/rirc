@@ -4,11 +4,13 @@ import akka.actor.{Props, Actor, ActorRef}
 import java.net.InetSocketAddress
 import de.abbaddie.rirc.service._
 import grizzled.slf4j.Logging
-import de.abbaddie.rirc.main.{Channel, Server, User}
-import de.abbaddie.rirc.message.{JoinMessage, PrivateNoticeMessage, ServiceCommandMessage}
+import de.abbaddie.rirc.main._
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
 import concurrent.Await
+import de.abbaddie.rirc.main.Channel
+import scala.Some
+import de.abbaddie.rirc.main.JoinMessage
 
 class SystemUser extends User {
 	def initActor(): ActorRef = Server.actorSystem.actorOf(Props[SystemUserActor], name = "system")

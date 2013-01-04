@@ -2,17 +2,13 @@ package de.abbaddie.rirc.main
 
 import akka.event.ActorEventBus
 import akka.actor.{Actor, ActorRef}
-import de.abbaddie.rirc.message._
 import collection._
-import de.abbaddie.rirc.message.ChannelClassifier
-import de.abbaddie.rirc.message.UserClassifier
 import scala.Some
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
 import akka.pattern.ask
 import scala.concurrent.Future
 import grizzled.slf4j.Logging
-import de.abbaddie.rirc.service.{AuthMessage, ServiceMessage}
 
 class RircEventBus extends ActorEventBus with Logging {
 	type Event = Message

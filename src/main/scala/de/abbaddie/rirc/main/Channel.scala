@@ -1,12 +1,8 @@
 package de.abbaddie.rirc.main
 
 import akka.actor.{Props, Actor}
-import de.abbaddie.rirc.message._
 import collection.immutable.HashMap
 import org.joda.time.DateTime
-import de.abbaddie.rirc.message.PartMessage
-import de.abbaddie.rirc.message.JoinMessage
-import de.abbaddie.rirc.message.ChannelClassifier
 import grizzled.slf4j.Logging
 import de.abbaddie.rirc.service.ChannelHelper
 

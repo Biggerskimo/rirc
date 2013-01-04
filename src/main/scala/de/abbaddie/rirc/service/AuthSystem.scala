@@ -1,8 +1,7 @@
 package de.abbaddie.rirc.service
 
 import akka.actor.Actor
-import concurrent.Future
-import de.abbaddie.rirc.main.Server
+import de.abbaddie.rirc.main._
 
 class AuthSystem extends Actor {
 	import context._

@@ -1,11 +1,7 @@
 package de.abbaddie.rirc.connector
 
 import org.jboss.netty.channel._
-import de.abbaddie.rirc.main.Server
-import de.abbaddie.rirc.message.ConnectMessage
-import akka.actor.Props
-import java.net.{InetSocketAddress, SocketAddress}
-import de.abbaddie.rirc.message.ConnectMessage
+import java.net.InetSocketAddress
 
 class IrcUpstreamHandler extends SimpleChannelUpstreamHandler {
 	var user : IrcUser = null

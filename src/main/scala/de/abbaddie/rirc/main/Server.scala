@@ -1,10 +1,8 @@
 package de.abbaddie.rirc.main
 
-import akka.actor.{Props, ActorRef, Actor, ActorSystem}
-import de.abbaddie.rirc.message._
+import akka.actor.{ActorRef, Actor, ActorSystem}
 import collection.immutable.HashMap
-import grizzled.slf4j.Logging
-import de.abbaddie.rirc.service.{ChannelHelper, ChannelProvider, AuthProvider}
+import de.abbaddie.rirc.service.{ChannelProvider, AuthProvider}
 
 object Server {
 	var actorSystem : ActorSystem = null

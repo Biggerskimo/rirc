@@ -1,9 +1,8 @@
 package de.abbaddie.rirc.main
 
-import akka.actor.{ActorRef, Actor}
+import akka.actor.ActorRef
 import de.abbaddie.rirc.connector.IrcConstants
 import java.net.InetSocketAddress
-import de.abbaddie.rirc.message.UserClassifier
 import de.abbaddie.rirc.service.AuthAccount
 
 abstract class User extends GenericTarget {

@@ -1,12 +1,8 @@
 package de.abbaddie.rirc.service
 
-import de.abbaddie.rirc.main.{ChannelUserInformation, User, Channel, Server}
-import de.abbaddie.rirc.message._
+import de.abbaddie.rirc.main._
 import de.abbaddie.rirc.main.Channel
-import de.abbaddie.rirc.message.ChannelCreationMessage
 import scala.Some
-import de.abbaddie.rirc.message.JoinMessage
-import de.abbaddie.rirc.message.PrivilegeChangeMessage
 
 object ChannelHelper {
 	val suser = Server.systemUser
