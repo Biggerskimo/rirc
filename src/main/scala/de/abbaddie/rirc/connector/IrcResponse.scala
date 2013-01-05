@@ -37,7 +37,7 @@ case class RPL_YOURHOST() extends IrcServerResponse(2, "Your host is " + IrcCons
 case class RPL_CREATED() extends IrcServerResponse(3, "This server was created a not so long time ago.")
 case class RPL_MYINFO() extends IrcServerResponse(4, IrcConstants.OUR_HOST + " " + IrcConstants.OUR_VERSION + "  ")
 
-case class RPL_USERHOST(user : User) extends IrcServerResponse(302, user.nickname + "=+" + user.hostname)
+case class RPL_USERHOST(user : User) extends IrcServerResponse(302, user.nickname + "=+" + user.username + "@" + user.hostname)
 
 case class RPL_WHOISUSER(user : User) extends IrcServerResponse(311, user.realname, user.nickname, user.username, user.hostname, "*")
 case class RPL_WHOISSERVER(user : User) extends IrcServerResponse(312, IrcConstants.OUR_NAME, user.nickname, IrcConstants.OUR_HOST)
