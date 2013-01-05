@@ -14,7 +14,7 @@ abstract class IrcServerResponse(val numeric : Int, val message : String, val be
 	def toIrcOutgoingLine(user: IrcUser) = {
 		val params = List(user.nickname) ++ before :+ message
 
-		new IrcOutgoingLine(IrcConstants.OUR_HOST, numericToString, params: _*)
+		new IrcOutgoingLine(Some(IrcConstants.OUR_HOST), numericToString, params: _*)
 	}
 
 	def numericToString = {
@@ -28,7 +28,7 @@ abstract class IrcServerResponse(val numeric : Int, val message : String, val be
 }
 
 case class IrcSimpleResponse(command : String, params : String*) extends IrcResponse {
-	def toIrcOutgoingLine(user: IrcUser) = new IrcOutgoingLine(IrcConstants.OUR_HOST, command, params : _*)
+	def toIrcOutgoingLine(user: IrcUser) = new IrcOutgoingLine(Some(IrcConstants.OUR_HOST), command, params : _*)
 }
 
 // http://tools.ietf.org/html/rfc2812#section-5.1
@@ -56,7 +56,7 @@ case class RPL_ENDOFWHO() extends IrcServerResponse(315, "End of /WHO list")
 case class RPL_CHANNELMODEIS(channel : Channel) /* sic */extends IrcResponse { // 324
 	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
 		new IrcOutgoingLine(
-			IrcConstants.OUR_HOST,
+			Some(IrcConstants.OUR_HOST),
 			"324",
 			0,
 			user.nickname,
@@ -82,7 +82,7 @@ case class RPL_CHANNELMODEIS(channel : Channel) /* sic */extends IrcResponse { /
 case class RPL_CREATIONTIME(channel : Channel) extends IrcResponse { // 329
 	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
 		new IrcOutgoingLine(
-			IrcConstants.OUR_HOST,
+			Some(IrcConstants.OUR_HOST),
 			"329",
 			0,
 			user.nickname,
@@ -101,7 +101,7 @@ case class RPL_INVITING(channel : Channel, user : User) extends IrcServerRespons
 case class RPL_WHOREPLY(user : User) extends IrcResponse { // 352
 	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
 		new IrcOutgoingLine(
-			IrcConstants.OUR_HOST,
+			Some(IrcConstants.OUR_HOST),
 			"352", // (numeric)
 			2, // (colon before hop count)
 			"*", // channels
@@ -124,7 +124,7 @@ case class RPL_NAMEREPLY(channel : Channel) extends IrcResponse { // 353
 		params +:= user.nickname
 
 		new IrcOutgoingLine(
-			IrcConstants.OUR_HOST,
+			Some(IrcConstants.OUR_HOST),
 			"353",
 			users.size,
 			params: _*
@@ -157,7 +157,7 @@ case class ERR_CHANOPRIVSNEEDED(channel : Channel) /* sic */ extends IrcServerRe
 /** CLIENT **/
 abstract class IrcClientResponse(val source : User, val command : String, val params : String*) extends IrcResponse {
 	def toIrcOutgoingLine(user: IrcUser) = {
-		new IrcOutgoingLine(userSourceString(source), command, params : _*)
+		new IrcOutgoingLine(Some(userSourceString(source)), command, params : _*)
 	}
 
 	val userSourceString = (user : User) => user.nickname + "!" + user.username + "@" + user.hostname
@@ -193,7 +193,7 @@ case class MSG_INVITE(channel : Channel, user : User) extends IrcClientResponse(
 /** SERVICE **/
 abstract class IrcServiceResponse(message : String) extends IrcResponse {
 	def toIrcOutgoingLine(user: IrcUser) = {
-		new IrcOutgoingLine(userSourceString(Server.systemUser), "NOTICE", user.nickname, message)
+		new IrcOutgoingLine(Some(userSourceString(Server.systemUser)), "NOTICE", user.nickname, message)
 	}
 
 	val userSourceString = (user : User) => user.nickname + "!" + user.username + "@" + user.hostname
@@ -202,3 +202,14 @@ abstract class IrcServiceResponse(message : String) extends IrcResponse {
 case class SVC_AUTHSUCCESS() extends IrcServiceResponse("Du wurdest erfolgreich angemeldet.")
 
 case class SVC_AUTHFAILURE() extends IrcServiceResponse("Die Anmeldung ist fehlgeschlagen.")
+
+/** EXTRA **/
+case class CMD_PING() extends IrcResponse {
+	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
+		new IrcOutgoingLine(
+			None,
+			"PING",
+			IrcConstants.OUR_HOST
+		)
+	}
+}

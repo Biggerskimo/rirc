@@ -9,25 +9,30 @@ import scala.Some
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
 import concurrent.Await
-import concurrent.duration._
 import collection.mutable
 import java.net.InetSocketAddress
+import org.joda.time.DateTime
+import org.scala_tools.time.Imports._
 
 class IrcUser(val channel : NettyChannel, address2 : InetSocketAddress) extends User {
 	def initActor() = Server.actorSystem.actorOf(Props(new IrcUserSystemActor(IrcUser.this)), name = uid.toString)
 
 	var ds : ActorRef = null
 	var us : ActorRef = null
+	var pinger : ActorRef = null
+	var lastActivity : DateTime = DateTime.now
+	var deathMode = false
+	var dies : DateTime = DateTime.now + 10.years
 
 	address = address2
 
 	// ensure ds + us
 	implicit val timeout = Timeout(1, TimeUnit.SECONDS)
-	Await.result(actor ? InitDummy(), 1 seconds)
+	Await.result(actor ? InitDummy, timeout.duration)
 }
 
-
-case class InitDummy()
+case object InitDummy
+case object Tick
 
 class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 	def receive = {
@@ -72,6 +77,8 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			// TODO check whether user is visible
 			if(sender == user) {
 				user.ds ! PoisonPill
+				user.us ! PoisonPill
+				user.pinger ! PoisonPill
 				Server.eventBus.unsubscribe(self)
 			}
 			else
@@ -111,10 +118,13 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case InvitationMessage(channel, inviter, _) =>
 			user.ds ! MSG_INVITE(channel, inviter)
 
-		case InitDummy() =>
+		case InitDummy =>
 			user.ds = context.actorOf(Props(new IrcUserDownstreamActor(user, user.channel)), name = "ds")
 			user.us = context.actorOf(Props(new IrcUserUpstreamActor(user)), name = "us")
-			sender ! InitDummy()
+			user.pinger = context.actorOf(Props(new IrcUserPingActor(user)), name = "ping")
+			implicit val dispatcher = context.system.dispatcher
+			context.system.scheduler.schedule(IrcConstants.TIMEOUT_TICK, IrcConstants.TIMEOUT_TICK, user.pinger, Tick)
+			sender ! InitDummy
 
 		case message : Any =>
 			error("Dropped message in IrcUserSystemActor for " + user.nickname + ": " + message + ", sent by " + context.sender)
@@ -333,6 +343,9 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 		case IrcIncomingLine("USERHOST", _) =>
 			user.ds ! RPL_USERHOST(user)
 
+		case IrcIncomingLine("PONG", sth @ _*) =>
+			info("received pong from " + user.nickname)
+
 		case line : IrcIncomingLine =>
 			info("Dropped incoming line from " + user.nickname + ": " + line)
 	}
@@ -395,5 +408,20 @@ class IrcUserDownstreamActor(val user : IrcUser, val channel : NettyChannel) ext
 
 	override def postStop() {
 		channel.close
+	}
+}
+
+class IrcUserPingActor(val user : IrcUser) extends Actor with Logging {
+	def receive = {
+		case Tick if user.deathMode && user.dies < DateTime.now =>
+			Server.events ! QuitMessage(user, Some("Ping timeout"))
+			info("killed " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
+		case Tick if user.deathMode =>
+			// wait ...
+		case Tick if user.lastActivity < DateTime.now - IrcConstants.TIMEOUT.toMillis =>
+			user.dies = DateTime.now + IrcConstants.TIMEOUT.toMillis
+			user.deathMode = true
+			user.ds ! CMD_PING()
+			info("pinged " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
 	}
 }

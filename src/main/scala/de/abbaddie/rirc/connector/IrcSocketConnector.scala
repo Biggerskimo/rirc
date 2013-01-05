@@ -9,15 +9,16 @@ import org.jboss.netty.handler.codec.frame.DelimiterBasedFrameDecoder
 import IrcConstants._
 import org.jboss.netty.buffer.{ChannelBuffers, ChannelBuffer}
 import java.net.InetSocketAddress
+import de.abbaddie.rirc.main.Server
 
 class IrcSocketConnector(val port : Int) extends Logging {
 	def this() = this(DEFAULT_PORT)
 
-	def start {
+	def start() {
 		val bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool, Executors.newCachedThreadPool))
 		bootstrap.setPipelineFactory(new ChannelPipelineFactory {
 			def getPipeline: ChannelPipeline = {
-				return Channels.pipeline(
+				Channels.pipeline(
 					new DelimiterBasedFrameDecoder(MAX_LINE_LEN, '\n', '\r', "\r\n"),
 					new IrcLineDecoder(),
 					new IrcLineEncoder(),
@@ -33,3 +34,4 @@ class IrcSocketConnector(val port : Int) extends Logging {
 
 	implicit def toChannelBuffer(s : String) : ChannelBuffer = ChannelBuffers.wrappedBuffer(s.toCharArray.map(_.toByte))
 }
+

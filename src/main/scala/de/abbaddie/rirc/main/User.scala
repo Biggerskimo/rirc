@@ -15,7 +15,6 @@ abstract class User extends GenericTarget {
 	var isOper = false
 
 	val uid = IdGenerator("user")
-	val sid = uid.toString.map(c => ('A' - '1' + c).toChar)
 
 	val actor = initActor()
 
@@ -29,4 +28,7 @@ abstract class User extends GenericTarget {
 	override def toString = "User#" + uid + "(" + nickname + ")"
 
 	Server.eventBus.subscribe(actor, UserClassifier(this))
+
+	def fullString = nickname + "!" + username + "@" + hostname
+	def extendedString = nickname + "!" + username + "@" + hostname + "#" + uid
 }

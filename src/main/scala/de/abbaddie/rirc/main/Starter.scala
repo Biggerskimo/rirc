@@ -33,7 +33,7 @@ object Starter {
 
 		// setup irc connector
 		val ircc = new IrcSocketConnector
-		ircc.start
+		ircc.start()
 		logger.info("IRC-Connector started.")
 
 		logger.info("Running.")

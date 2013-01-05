@@ -20,7 +20,7 @@ class IrcLineDecoder extends OneToOneDecoder with Logging {
 
 				IrcIncomingLine(command.toUpperCase, params: _*)
 			case _ =>
-				error("invalid line received")
+				error("invalid line received: '" + lineStr + "'")
 				null
 		}
 	}
