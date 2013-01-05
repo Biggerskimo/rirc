@@ -14,6 +14,7 @@ object IrcConstants {
 	val UNASSIGNED_REALNAME = "JohnDoe"
 	val DEFAULT_PORT = 6667
 	val MAX_LINE_LEN = 512 // http://tools.ietf.org/html/rfc1459.html#section-2.3
+	val OWNER = "Biggerskimo"
 
 	val OUR_VERSION = "1.0.0-SUPERBETA"
 	val OUR_NAME = "SUPERNET"

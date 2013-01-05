@@ -15,4 +15,10 @@ trait ChannelDescriptor {
 	def ops : Seq[String]
 	def voices : Seq[String]
 	def registration : DateTime
+
+	def setOwner(owner : String)
+	def addOp(op : String)
+	def addVoice(voice : String)
+	def rmOp(op : String)
+	def rmVoice(voice : String)
 }

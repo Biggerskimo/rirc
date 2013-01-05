@@ -51,7 +51,13 @@ case class ChannelCloseMessage(channel : Channel) extends Message with ChannelMe
 
 case class ChannelCreationMessage(channel : Channel, user : User) extends Message with ChannelMessage with ServerMessage
 
+case class ChannelModeChangeMessage(channel : Channel, sender : User, mode : ChannelMode) extends Message with ChannelMessage
+
 case class ConnectMessage(user : User) extends Message with UserMessage with ServerMessage
+
+case class InvitationMessage(channel : Channel, invitar : User, invited : User) extends Message with ChannelMessage with UserMessage {
+	def user = invited
+}
 
 case class JoinMessage(channel : Channel, user : User) extends Message with ChannelMessage with UserMessage
 
@@ -87,3 +93,7 @@ case object OP extends Privilege
 sealed class PrivilegeOperation
 case object SET extends PrivilegeOperation
 case object UNSET extends PrivilegeOperation
+
+sealed class ChannelMode
+case class INVITE_ONLY(yes : Boolean) extends ChannelMode
+case class PROTECTION(password : Option[String]) extends ChannelMode

@@ -98,6 +98,19 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case AuthFailure(_, _) =>
 			user.ds ! SVC_AUTHFAILURE()
 
+		case ChannelModeChangeMessage(channel, sender, INVITE_ONLY(yes)) =>
+			val flag = if(yes) "+" else "-"
+			user.ds ! MSG_MODE(channel, sender, flag + "i")
+
+		case ChannelModeChangeMessage(channel, sender, PROTECTION(Some(passwd))) =>
+			user.ds ! MSG_MODE(channel, sender, "+k", passwd)
+
+		case ChannelModeChangeMessage(channel, sender, PROTECTION(None)) =>
+			user.ds ! MSG_MODE(channel, sender, "-k")
+
+		case InvitationMessage(channel, inviter, _) =>
+			user.ds ! MSG_INVITE(channel, inviter)
+
 		case InitDummy() =>
 			user.ds = context.actorOf(Props(new IrcUserDownstreamActor(user, user.channel)), name = "ds")
 			user.us = context.actorOf(Props(new IrcUserUpstreamActor(user)), name = "us")
@@ -150,7 +163,8 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				user.ds ! RPL_WHOREPLY(user)
 			user.ds ! RPL_ENDOFWHO()
 
-		case IrcIncomingLine("JOIN", name) =>
+		case IrcIncomingLine("JOIN", name, extra @ _*) =>
+			val passwd = extra.headOption
 			if(!name.startsWith("#"))
 				user.ds ! ERR_NOSUCHCHANNEL(name)
 			else {
@@ -164,7 +178,15 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 						Server.eventBus.publish(ChannelCreationMessage(channel, user))
 				}
 
-				Server.eventBus.publish(JoinMessage(channel, user))
+				if(!UserUtil.checkInviteOnly(channel, user)) {
+					user.ds ! ERR_INVITEONLYCHAN(channel)
+				}
+				else if(!UserUtil.checkPasswordProtection(channel, user, passwd)) {
+					user.ds ! ERR_BADCHANNELKEY(channel)
+				}
+				else {
+					Server.events ! JoinMessage(channel, user)
+				}
 			}
 
 		case IrcIncomingLine("MODE", name) =>
@@ -203,12 +225,15 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				case Some(channel) =>
 					val parts = message split " "
 					Server.events ! ServiceCommandMessage(channel, user, parts(0).tail toLowerCase, parts.tail :_*)
+					Server.events ! PublicTextMessage(channel, user, message)
 				case _ =>
 					user.ds ! ERR_NOSUCHCHANNEL(target)
 			}
 
 		case IrcIncomingLine("PRIVMSG", target, message) =>
 			Server.targets get target match {
+				case Some(channel : Channel) if !(channel.users contains user) =>
+					user.ds ! ERR_NOTONCHANNEL(channel)
 				case Some(channel : Channel) =>
 					Server.eventBus.publish(PublicTextMessage(channel, user, message))
 				case Some(to : User) =>
@@ -268,7 +293,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				case Some(channel) =>
 					if(!channel.users.contains(user))
 						user.ds ! ERR_NOTONCHANNEL(channel)
-					else if (!channel.users(user).isOp)
+					else if (!UserUtil.checkOp(channel, user))
 						user.ds ! ERR_CHANOPRIVSNEEDED(channel)
 					else
 						Server.events ! TopicChangeMessage(channel, user, channel.topic, topic)
@@ -292,6 +317,22 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 		case IrcIncomingLine("LOGIN", name, password) =>
 			Server.events ! AuthStart(user, name, password)
 
+		case IrcIncomingLine("INVITE", uname, cname) =>
+			(Server.users get uname, Server.channels get cname) match {
+				case (Some(invited), Some(channel)) if channel.users contains invited =>
+					user.ds ! ERR_USERONCHANNEL(channel, invited)
+				case (Some(invited), Some(channel)) if !(channel.users contains user) =>
+					user.ds ! ERR_NOTONCHANNEL(channel)
+				case (Some(invited), Some(channel)) if !UserUtil.checkOp(channel, user) =>
+					user.ds ! ERR_CHANOPRIVSNEEDED(channel)
+				case (Some(invited), Some(channel)) =>
+					Server.events ! InvitationMessage(channel, user, invited)
+					user.ds ! RPL_INVITING(channel, invited)
+			}
+
+		case IrcIncomingLine("USERHOST", _) =>
+			user.ds ! RPL_USERHOST(user)
+
 		case line : IrcIncomingLine =>
 			info("Dropped incoming line from " + user.nickname + ": " + line)
 	}
@@ -301,12 +342,16 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 		desc.head match {
 			case '+' =>
 				desc.tail foreach{ char => char match {
-					case 'o' | 'v' if queue.isEmpty =>
+					case 'o' | 'v' | 'k' if queue.isEmpty =>
 						user.ds ! ERR_NONICKNAMEGIVEN()
 					case 'o' =>
 						handlePrivilegeChange(channel, queue.dequeue(), OP, SET)
 					case 'v' =>
 						handlePrivilegeChange(channel, queue.dequeue(), VOICE, SET)
+					case 'i' =>
+						Server.events ! ChannelModeChangeMessage(channel, user, INVITE_ONLY(yes = true))
+					case 'k' =>
+						Server.events ! ChannelModeChangeMessage(channel, user, PROTECTION(Some(queue.dequeue())))
 				}}
 			case '-' =>
 				desc.tail foreach{ char => char match {
@@ -316,6 +361,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 						handlePrivilegeChange(channel, queue.dequeue(), OP, UNSET)
 					case 'v' =>
 						handlePrivilegeChange(channel, queue.dequeue(), VOICE, UNSET)
+					case 'i' =>
+						Server.events ! ChannelModeChangeMessage(channel, user, INVITE_ONLY(yes = false))
+					case 'k' =>
+						Server.events ! ChannelModeChangeMessage(channel, user, PROTECTION(None))
 				}
 			}
 		}
@@ -325,8 +374,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 		Server.users get username match {
 			case Some(user2) if !channel.users.contains(user2) =>
 				user.ds ! ERR_USERNOTINCHANNEL(channel, user2)
-			case Some(user2) =>
+			case Some(user2) if priv == OP && channel.users(user2).isOp != (op == SET)
+					|| priv == VOICE && channel.users(user2).isVoice != (op == SET) =>
 				Server.events ! PrivilegeChangeMessage(channel, user, user2, priv, op)
+			case _ =>
 		}
 	}
 }

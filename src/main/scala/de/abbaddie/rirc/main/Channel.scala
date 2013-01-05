@@ -1,7 +1,7 @@
 package de.abbaddie.rirc.main
 
 import akka.actor.{Props, Actor}
-import collection.immutable.HashMap
+import collection.immutable.{HashSet, HashMap}
 import org.joda.time.DateTime
 import grizzled.slf4j.Logging
 import de.abbaddie.rirc.service.ChannelHelper
@@ -16,9 +16,12 @@ case class Channel(name : String) extends GenericTarget {
 	var users : Map[User, ChannelUserInformation] = HashMap()
 	val creation = DateTime.now
 	var topic : Option[String] = None
+	var isInviteOnly = false
+	var invited : Set[User] = HashSet()
+	var protectionPassword : Option[String] = None
 	def isRegistered = Server.channelProvider.registeredChannels contains name
 
-	val actor = Server.actorSystem.actorOf(Props(new ChannelActor(Channel.this)))
+	val actor = Server.actorSystem.actorOf(Props(new ChannelActor(Channel.this)), name = "channel" + name.tail)
 	Server.eventBus.subscribe(actor, new ChannelClassifier(Channel.this))
 	Server.eventBus.makeImportant(actor)
 
@@ -50,6 +53,14 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 		case PrivilegeChangeMessage(_, _, user, VOICE, op) =>
 			channel.users(user).isVoice = (op == SET)
 			sender ! null
+		case ChannelModeChangeMessage(_, _, INVITE_ONLY(yes)) =>
+			channel.isInviteOnly = yes
+			sender ! null
+		case ChannelModeChangeMessage(_, _, PROTECTION(passwd)) =>
+			channel.protectionPassword = passwd
+			sender ! null
+		case InvitationMessage(_, _, invited) =>
+			channel.invited += invited
 		case ChannelCloseMessage(_) |
 			 ChannelCreationMessage(_, _) |
 			 PublicTextMessage(_, _, _) |
@@ -67,5 +78,7 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 		if(channel.users.isEmpty) {
 			Server.events ! ChannelCloseMessage(channel)
 		}
+
+		channel.invited -= user
 	}
 }

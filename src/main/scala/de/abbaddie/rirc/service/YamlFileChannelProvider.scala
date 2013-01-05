@@ -6,7 +6,7 @@ import beans.BeanProperty
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
 import org.yaml.snakeyaml.constructor.Constructor
 import collection.immutable.HashMap
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import java.io.{FileReader, FileWriter}
 import org.joda.time.DateTime
 import java.util.{List => JavaList}
@@ -32,7 +32,7 @@ class YamlFileChannelProvider extends ChannelProvider {
 	def registeredChannels = channels
 
 	protected def load() {
-		yaml.loadAll(new FileReader("channels.yml")) foreach {
+		yaml.loadAll(new FileReader("channels.yml")).asScala foreach {
 			case chan : YamlChannel =>
 				channels += (chan.name -> chan)
 			case _ =>
@@ -66,6 +66,11 @@ class YamlChannel extends ChannelDescriptor {
 	@BeanProperty
 	var voicesList : JavaList[String] = new JavaArrayList()
 
-	var ops : Seq[String] = opsList
-	var voices : Seq[String] = voicesList
+	def ops : Seq[String] = opsList.asScala
+	def voices : Seq[String] = voicesList.asScala
+
+	def addOp(op : String) { opsList add op }
+	def addVoice(voice : String) { voicesList add voice }
+	def rmOp(op : String) { opsList remove op }
+	def rmVoice(voice : String) { voicesList remove voice }
 }

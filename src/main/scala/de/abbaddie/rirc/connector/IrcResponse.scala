@@ -37,6 +37,8 @@ case class RPL_YOURHOST() extends IrcServerResponse(2, "Your host is " + IrcCons
 case class RPL_CREATED() extends IrcServerResponse(3, "This server was created a not so long time ago.")
 case class RPL_MYINFO() extends IrcServerResponse(4, IrcConstants.OUR_HOST + " " + IrcConstants.OUR_VERSION + "  ")
 
+case class RPL_USERHOST(user : User) extends IrcServerResponse(302, user.nickname + "=+" + user.hostname)
+
 case class RPL_WHOISUSER(user : User) extends IrcServerResponse(311, user.realname, user.nickname, user.username, user.hostname, "*")
 case class RPL_WHOISSERVER(user : User) extends IrcServerResponse(312, IrcConstants.OUR_NAME, user.nickname, IrcConstants.OUR_HOST)
 
@@ -59,9 +61,21 @@ case class RPL_CHANNELMODEIS(channel : Channel) /* sic */extends IrcResponse { /
 			0,
 			user.nickname,
 			channel.name,
-			"+",
-			""
+			getChanModes(channel)
 		)
+	}
+
+	def getChanModes(channel : Channel) = {
+		var additional : List[String] = Nil
+		var str = new StringBuilder("+tn")
+
+		if(channel.isInviteOnly) str += 'i'
+		if(channel.protectionPassword.isDefined) {
+			str += 'k'
+			additional :+= channel.protectionPassword.get
+		}
+
+		str.toString() + additional.mkString(" ", " ", "")
 	}
 }
 
@@ -81,6 +95,8 @@ case class RPL_CREATIONTIME(channel : Channel) extends IrcResponse { // 329
 case class RPL_WHOISACCOUNT(user : User) extends IrcServerResponse(330, "is logged in as", user.nickname, user.authacc.get.name)
 case class RPL_NOTOPIC(channel : Channel) extends IrcServerResponse(331, "No topic is set", channel.name)
 case class RPL_TOPIC(channel : Channel) extends IrcServerResponse(332, channel.topic.get, channel.name)
+
+case class RPL_INVITING(channel : Channel, user : User) extends IrcServerResponse(341, user.nickname, channel.name)
 
 case class RPL_WHOREPLY(user : User) extends IrcResponse { // 352
 	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
@@ -128,8 +144,13 @@ case class ERR_NICKNAMEINUSE(name : String) extends IrcServerResponse(433, "Nick
 
 case class ERR_USERNOTINCHANNEL(channel : Channel, user : User) extends IrcServerResponse(441, "They aren't on that channel", user.nickname, channel.name)
 case class ERR_NOTONCHANNEL(channel : Channel) extends IrcServerResponse(442, "You're not on that channel", channel.name)
+case class ERR_USERONCHANNEL(channel : Channel, user : User) extends IrcServerResponse(443, "is already on channel", user.nickname, channel.name)
 
 case class ERR_NOTREGISTERED() extends IrcServerResponse(451, "You have not registered")
+
+case class ERR_INVITEONLYCHAN(channel : Channel) extends IrcServerResponse(473, "Cannot join channel (+i)", channel.name)
+
+case class ERR_BADCHANNELKEY(channel : Channel) extends IrcServerResponse(475, "Cannot join channel (+k)", channel.name)
 
 case class ERR_CHANOPRIVSNEEDED(channel : Channel) /* sic */ extends IrcServerResponse(482, "You're not channel operator")
 
@@ -159,13 +180,15 @@ case class MSG_PART(channel : Channel, user : User, message : Option[String]) ex
 case class MSG_QUIT(user : User, message : Option[String]) extends IrcClientResponse(user, "QUIT", message.toSeq :_*)
 
 case class MSG_NICK(user : User, oldNick : String, newNick : String) extends IrcClientResponse(user, "NICK", newNick) {
-	override val userSourceString = (user : User) => user.nickname + "!" + user.username + "@" + user.hostname
+	override val userSourceString = (user : User) => oldNick + "!" + user.username + "@" + user.hostname
 }
 
 case class MSG_TOPIC(channel : Channel, user : User, topic : String) extends IrcClientResponse(user, "TOPIC", channel.name, topic)
 
 case class MSG_MODE(channel : Channel, user : User, desc : String, additional : String) extends IrcClientResponse(user, "MODE", channel.name :: desc :: additional :: Nil :_*)
+object MSG_MODE { def apply(channel : Channel, user : User, desc : String) = new MSG_MODE(channel, user, desc, "")}
 
+case class MSG_INVITE(channel : Channel, user : User) extends IrcClientResponse(user, "INVITE", user.nickname, channel.name)
 
 /** SERVICE **/
 abstract class IrcServiceResponse(message : String) extends IrcResponse {

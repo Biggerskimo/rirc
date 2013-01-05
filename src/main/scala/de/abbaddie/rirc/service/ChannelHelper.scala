@@ -54,11 +54,19 @@ object ChannelHelper {
 	}
 
 	def checkUser(channel : Channel, user : User) {
-		checkUserPart(channel, user, channel.users(user))(Server.channelProvider.registeredChannels(channel.name))
+		Server.channelProvider.registeredChannels get channel.name match {
+			case Some(desc) =>
+				checkUserPart(channel, user, channel.users(user))(desc)
+			case _ =>
+		}
 	}
 
 	def checkUser(channel : Channel, user : User, acc : Option[AuthAccount]) {
-		checkUserPart(channel, user, acc, channel.users(user))(Server.channelProvider.registeredChannels(channel.name))
+		Server.channelProvider.registeredChannels get channel.name match {
+			case Some(desc) =>
+				checkUserPart(channel, user, acc, channel.users(user))(desc)
+			case _ =>
+		}
 	}
 
 	def checkUserPart(channel : Channel, user2 : User, info2 : ChannelUserInformation)(implicit desc : ChannelDescriptor) {
