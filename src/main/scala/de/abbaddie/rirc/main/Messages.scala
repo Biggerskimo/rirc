@@ -47,6 +47,8 @@ case class AuthSuccess(user : User, account : AuthAccount) extends Message with 
 
 case class AuthFailure(user : User, name : String) extends Message with UserMessage
 
+case class BanMessage(channel : Channel, user : User, mask : String) extends Message with ChannelMessage
+
 case class ChannelCloseMessage(channel : Channel) extends Message with ChannelMessage with ServerMessage
 
 case class ChannelCreationMessage(channel : Channel, user : User) extends Message with ChannelMessage with ServerMessage
@@ -60,6 +62,10 @@ case class InvitationMessage(channel : Channel, invitar : User, invited : User) 
 }
 
 case class JoinMessage(channel : Channel, user : User) extends Message with ChannelMessage with UserMessage
+
+case class KickMessage(channel : Channel, kicker : User, kicked : User) extends Message with ChannelMessage with UserMessage {
+	def user = kicked
+}
 
 case class NickchangeMessage(user : User, oldNick : String, newNick : String) extends Message with BroadcastMessage
 
@@ -84,6 +90,8 @@ case class QuitMessage(user : User, message : Option[String]) extends Message wi
 case class ServiceCommandMessage(channel : Channel, user : User, command : String, params : String*) extends Message with ServiceMessage
 
 case class TopicChangeMessage(channel : Channel, user : User, oldTopic : Option[String], newTopic : String) extends Message with ChannelMessage
+
+case class UnbanMessage(channel : Channel, user : User, mask : String) extends Message with ChannelMessage
 
 
 sealed class Privilege

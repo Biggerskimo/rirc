@@ -19,6 +19,7 @@ case class Channel(name : String) extends GenericTarget {
 	var isInviteOnly = false
 	var invited : Set[User] = HashSet()
 	var protectionPassword : Option[String] = None
+	var bans : List[String] = Nil
 	def isRegistered = Server.channelProvider.registeredChannels contains name
 
 	val actor = Server.actorSystem.actorOf(Props(new ChannelActor(Channel.this)), name = "channel" + name.tail)
@@ -38,35 +39,55 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 			if(user == Server.systemUser) channel.users(user).isOp = true
 			ChannelHelper.checkUser(channel, user)
 			sender ! null
+
 		case PartMessage(_, user, _) =>
 			rmUser(user)
 			sender ! null
+
 		case QuitMessage(user, _) =>
 			rmUser(user)
 			sender ! null
+
 		case TopicChangeMessage(_, _, _, topic) =>
 			channel.topic = Some(topic)
 			sender ! null
+
 		case PrivilegeChangeMessage(_, _, user, OP, op) =>
 			channel.users(user).isOp = (op == SET)
 			sender ! null
+
 		case PrivilegeChangeMessage(_, _, user, VOICE, op) =>
 			channel.users(user).isVoice = (op == SET)
 			sender ! null
+
 		case ChannelModeChangeMessage(_, _, INVITE_ONLY(yes)) =>
 			channel.isInviteOnly = yes
 			sender ! null
+
 		case ChannelModeChangeMessage(_, _, PROTECTION(passwd)) =>
 			channel.protectionPassword = passwd
 			sender ! null
+
 		case InvitationMessage(_, _, invited) =>
 			channel.invited += invited
+
+		case KickMessage(_, _, kicked) =>
+			rmUser(kicked)
+			sender ! null
+
+		case BanMessage(_, _, mask) =>
+			channel.bans ::= mask
+
+		case UnbanMessage(_, _, mask) =>
+			channel.bans = channel.bans filter(_ != mask)
+
 		case ChannelCloseMessage(_) |
 			 ChannelCreationMessage(_, _) |
 			 PublicTextMessage(_, _, _) |
 			 PublicNoticeMessage(_, _, _) =>
 			// ignore
 			sender ! null
+
 		case message: Any =>
 			error("Dropped message in ChannelActor for " + channel.name + ": " + message)
 			sender ! null

@@ -71,6 +71,8 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			user.ds ! new MSG_NOTICE(user, sender, message)
 
 		case PartMessage(channel, sender, message) =>
+			if(user == sender)
+				Server.eventBus.unsubscribe(self, ChannelClassifier(channel))
 			user.ds ! MSG_PART(channel, sender, message)
 
 		case QuitMessage(sender, message) =>
@@ -117,6 +119,17 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 
 		case InvitationMessage(channel, inviter, _) =>
 			user.ds ! MSG_INVITE(channel, inviter)
+
+		case KickMessage(channel, kicker, kicked) =>
+			if(user == sender)
+				Server.eventBus.unsubscribe(self, ChannelClassifier(channel))
+			user.ds ! MSG_KICK(channel, kicker, kicked)
+
+		case BanMessage(channel, sender, mask) =>
+			user.ds ! MSG_MODE(channel, sender, "+b", mask)
+
+		case UnbanMessage(channel, sender, mask) =>
+			user.ds ! MSG_MODE(channel, sender, "-b", mask)
 
 		case InitDummy =>
 			user.ds = context.actorOf(Props(new IrcUserDownstreamActor(user, user.channel)), name = "ds")
@@ -194,6 +207,9 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				else if(!UserUtil.checkPasswordProtection(channel, user, passwd)) {
 					user.ds ! ERR_BADCHANNELKEY(channel)
 				}
+				else if(!UserUtil.checkBanned(channel, user)) {
+					user.ds ! ERR_BANNEDFROMCHAN(channel)
+				}
 				else {
 					Server.events ! JoinMessage(channel, user)
 				}
@@ -213,7 +229,8 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				case Some(channel) if !channel.users.contains(user) =>
 					user.ds ! ERR_NOTONCHANNEL(channel)
 				case Some(channel) =>
-					// TODO ban list
+					channel.bans foreach(user.ds ! RPL_BANLIST(channel, _))
+					user.ds ! RPL_ENDOFBANLIST(channel)
 				case None =>
 					user.ds ! ERR_NOSUCHCHANNEL(name)
 			}
@@ -338,6 +355,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				case (Some(invited), Some(channel)) =>
 					Server.events ! InvitationMessage(channel, user, invited)
 					user.ds ! RPL_INVITING(channel, invited)
+				case (Some(_), None) =>
+					user.ds ! ERR_NOSUCHCHANNEL(cname)
+				case (None, _) =>
+					user.ds ! ERR_NOSUCHNICK(uname)
 			}
 
 		case IrcIncomingLine("USERHOST", _) =>
@@ -345,6 +366,22 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 
 		case IrcIncomingLine("PONG", sth @ _*) =>
 			info("received pong from " + user.nickname)
+
+		case IrcIncomingLine("KICK", cname, uname, rest @ _*) =>
+			(Server.channels get cname, Server.users get uname) match {
+				case (Some(channel), Some(kicked)) if !(channel.users contains user) =>
+					user.ds ! ERR_NOTONCHANNEL(channel)
+				case (Some(channel), Some(kicked)) if !(channel.users contains kicked) =>
+					user.ds ! ERR_NOSUCHNICK(kicked.nickname)
+				case (Some(channel), Some(kicked)) if !UserUtil.checkOp(channel, user) =>
+					user.ds ! ERR_CHANOPRIVSNEEDED(channel)
+				case (Some(channel), Some(kicked)) =>
+					Server.events ! KickMessage(channel, user, kicked)
+				case (Some(_), None) =>
+					user.ds ! ERR_NOSUCHNICK(uname)
+				case (None, _) =>
+					user.ds ! ERR_NOSUCHCHANNEL(cname)
+			}
 
 		case line : IrcIncomingLine =>
 			info("Dropped incoming line from " + user.nickname + ": " + line)
@@ -355,8 +392,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 		desc.head match {
 			case '+' =>
 				desc.tail foreach{ char => char match {
-					case 'o' | 'v' | 'k' if queue.isEmpty =>
+					case 'o' | 'v' | 'b' if queue.isEmpty =>
 						user.ds ! ERR_NONICKNAMEGIVEN()
+					case 'k' | 'b' if queue.isEmpty =>
+						user.ds ! ERR_NEEDMOREPARAMS()
 					case 'o' =>
 						handlePrivilegeChange(channel, queue.dequeue(), OP, SET)
 					case 'v' =>
@@ -365,11 +404,15 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 						Server.events ! ChannelModeChangeMessage(channel, user, INVITE_ONLY(yes = true))
 					case 'k' =>
 						Server.events ! ChannelModeChangeMessage(channel, user, PROTECTION(Some(queue.dequeue())))
+					case 'b' =>
+						Server.events ! BanMessage(channel, user, UserUtil.cleanMask(queue.dequeue()))
 				}}
 			case '-' =>
 				desc.tail foreach{ char => char match {
 					case 'o' | 'v' if queue.isEmpty =>
 						user.ds ! ERR_NONICKNAMEGIVEN()
+					case 'b' if queue.isEmpty =>
+						user.ds ! ERR_NEEDMOREPARAMS()
 					case 'o' =>
 						handlePrivilegeChange(channel, queue.dequeue(), OP, UNSET)
 					case 'v' =>
@@ -378,6 +421,8 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 						Server.events ! ChannelModeChangeMessage(channel, user, INVITE_ONLY(yes = false))
 					case 'k' =>
 						Server.events ! ChannelModeChangeMessage(channel, user, PROTECTION(None))
+					case 'b' =>
+						Server.events ! UnbanMessage(channel, user, UserUtil.cleanMask(queue.dequeue()))
 				}
 			}
 		}

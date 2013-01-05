@@ -33,14 +33,14 @@ class ServerActor extends Actor with Logging {
 	def receive = {
 		case ConnectMessage(user) =>
 			users += (user.nickname -> user)
-			info(user.nickname + " connected")
+			info(user.extendedString + " connected")
 		case ChannelCreationMessage(channel, user) =>
 			channels += (channel.name -> channel)
 		case ChannelCloseMessage(channel) =>
 			channels -= channel.name
 		case QuitMessage(user, _) =>
 			users -= user.nickname
-			info(user.nickname + " disconnected")
+			info(user.extendedString + " disconnected")
 		case NickchangeMessage(user, oldNick, newNick) =>
 			users += (newNick -> user)
 			users -= oldNick

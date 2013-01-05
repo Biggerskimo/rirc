@@ -93,7 +93,10 @@ class SystemUserActor extends Actor with Logging {
 			Server.events ! PublicTextMessage(channel, suser, user.nickname + ": " + msg)
 
 		case JoinMessage(_, _) |
-			QuitMessage(_, _) =>
+			QuitMessage(_, _) |
+			KickMessage(_, _, _) |
+			BanMessage(_, _, _) |
+			BanMessage(_, _, _) =>
 
 
 		case message =>

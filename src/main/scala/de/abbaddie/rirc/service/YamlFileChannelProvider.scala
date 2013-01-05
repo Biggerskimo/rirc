@@ -65,12 +65,35 @@ class YamlChannel extends ChannelDescriptor {
 	var opsList : JavaList[String] = new JavaArrayList()
 	@BeanProperty
 	var voicesList : JavaList[String] = new JavaArrayList()
+	@BeanProperty
+	var banList : JavaList[YamlBan] = new JavaArrayList()
 
 	def ops : Seq[String] = opsList.asScala
 	def voices : Seq[String] = voicesList.asScala
+	def bans : Seq[YamlBan] = banList.asScala
 
 	def addOp(op : String) { opsList add op }
 	def addVoice(voice : String) { voicesList add voice }
 	def rmOp(op : String) { opsList remove op }
 	def rmVoice(voice : String) { voicesList remove voice }
+	def addBan(mask : String, expiration : Option[DateTime], message : String, by : String) {
+		banList add new YamlBan(mask, expiration, message, by)
+	}
+	def rmBan(ban : ChannelBan) { banList remove ban }
+}
+
+class YamlBan(@BeanProperty var mask : String,
+		var expiration : Option[DateTime],
+		@BeanProperty var message : String,
+		@BeanProperty var by : String) extends ChannelBan {
+
+	def getExpiration = expiration match {
+		case Some(time) => time.getMillis
+		case None => 0L
+	}
+
+	def setExpiration(millis : Long) {
+		if(millis == 0L) expiration = None
+		else expiration = Some(new DateTime(millis))
+	}
 }

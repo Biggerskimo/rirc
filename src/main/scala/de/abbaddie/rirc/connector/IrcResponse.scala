@@ -96,7 +96,7 @@ case class RPL_WHOISACCOUNT(user : User) extends IrcServerResponse(330, "is logg
 case class RPL_NOTOPIC(channel : Channel) extends IrcServerResponse(331, "No topic is set", channel.name)
 case class RPL_TOPIC(channel : Channel) extends IrcServerResponse(332, channel.topic.get, channel.name)
 
-case class RPL_INVITING(channel : Channel, user : User) extends IrcServerResponse(341, user.nickname, channel.name)
+case class RPL_INVITING(channel : Channel, user : User) extends IrcServerResponse(341, channel.name, user.nickname)
 
 case class RPL_WHOREPLY(user : User) extends IrcResponse { // 352
 	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
@@ -133,6 +133,8 @@ case class RPL_NAMEREPLY(channel : Channel) extends IrcResponse { // 353
 }
 
 case class RPL_ENDOFNAMES(channel : Channel) extends IrcServerResponse(366, "End of /NAMES list", channel.name)
+case class RPL_BANLIST(channel : Channel, mask : String) extends IrcServerResponse(367, mask, channel.name)
+case class RPL_ENDOFBANLIST(channel : Channel) extends IrcServerResponse(368, "End of channel ban list", channel.name)
 
 case class ERR_NOSUCHNICK(name : String) extends IrcServerResponse(401, "No such nick/channel")
 
@@ -148,11 +150,13 @@ case class ERR_USERONCHANNEL(channel : Channel, user : User) extends IrcServerRe
 
 case class ERR_NOTREGISTERED() extends IrcServerResponse(451, "You have not registered")
 
-case class ERR_INVITEONLYCHAN(channel : Channel) extends IrcServerResponse(473, "Cannot join channel (+i)", channel.name)
+case class ERR_NEEDMOREPARAMS() extends IrcServerResponse(461, "Not enough parameters")
 
+case class ERR_INVITEONLYCHAN(channel : Channel) extends IrcServerResponse(473, "Cannot join channel (+i)", channel.name)
+case class ERR_BANNEDFROMCHAN(channel : Channel) extends IrcServerResponse(474, "Cannot join channel (+b)", channel.name)
 case class ERR_BADCHANNELKEY(channel : Channel) extends IrcServerResponse(475, "Cannot join channel (+k)", channel.name)
 
-case class ERR_CHANOPRIVSNEEDED(channel : Channel) /* sic */ extends IrcServerResponse(482, "You're not channel operator")
+case class ERR_CHANOPRIVSNEEDED(channel : Channel) /* sic */ extends IrcServerResponse(482, "You're not channel operator", channel.name)
 
 /** CLIENT **/
 abstract class IrcClientResponse(val source : User, val command : String, val params : String*) extends IrcResponse {
@@ -189,6 +193,8 @@ case class MSG_MODE(channel : Channel, user : User, desc : String, additional : 
 object MSG_MODE { def apply(channel : Channel, user : User, desc : String) = new MSG_MODE(channel, user, desc, "")}
 
 case class MSG_INVITE(channel : Channel, user : User) extends IrcClientResponse(user, "INVITE", user.nickname, channel.name)
+
+case class MSG_KICK(channel : Channel, kicker : User, kicked : User) extends IrcClientResponse(kicker, "KICK", channel.name, kicked.nickname)
 
 /** SERVICE **/
 abstract class IrcServiceResponse(message : String) extends IrcResponse {

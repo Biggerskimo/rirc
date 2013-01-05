@@ -23,4 +23,30 @@ object UserUtil {
 		checkOp(channel, user) ||
 		(channel.invited contains user) ||
 		password.isDefined && channel.protectionPassword.get == password.get
+
+	def checkBanned(channel : Channel, user : User) = !(channel.bans exists(matchesMask(user, _)))
+
+	val regex = """^([^!@]*)!?([^!@]*)@?([^!@]*)$""".r
+	def matchesMask(user : User, mask : String) = { mask match {
+			case regex(nickmask, usermask, hostmask) =>
+				matchConcrete(user.nickname, nickmask) &&
+				matchConcrete(user.username, usermask) &&
+				matchConcrete(user.hostname, hostmask)
+			case _ =>
+				false
+		}
+	}
+	def cleanMask(mask : String) = { mask match {
+			case regex(nickmask, "", "") => nickmask + "!*@*"
+			case regex("", usermask, "") => "*!" + usermask + "@*"
+			case regex("", "", hostmask) => "*!*@" + hostmask
+			case regex(nickmask, usermask, "") => nickmask + "!" + usermask + "@*"
+			case regex(nickmask, "", hostmask) => nickmask + "!*@" + hostmask
+			case regex("", nickmask, hostmask) => "*!" + nickmask + "@" + hostmask
+			case regex(nickmask, usermask, hostmask) => nickmask + "!" + usermask + "@" + hostmask
+			case _ => "I!AM@INVALID"
+		}
+	}
+
+	protected def matchConcrete(string : String, mask : String) = string.matches("\\Q" + mask.replace("*", "\\E.*\\Q") + "\\E")
 }

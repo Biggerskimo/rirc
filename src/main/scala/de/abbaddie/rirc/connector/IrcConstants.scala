@@ -16,7 +16,7 @@ object IrcConstants {
 	val DEFAULT_PORT = 6667
 	val MAX_LINE_LEN = 512 // http://tools.ietf.org/html/rfc1459.html#section-2.3
 	val OWNER = "Biggerskimo"
-	val TIMEOUT = 20.seconds
+	val TIMEOUT = 60.seconds
 	val TIMEOUT_TICK = 5.seconds
 
 	val OUR_VERSION = "1.0.0-SUPERBETA"
