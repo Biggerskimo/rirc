@@ -1,6 +1,8 @@
 package de.abbaddie.rirc.connector
 
 import de.abbaddie.rirc.main.{Server, Channel, User}
+import org.joda.time.DateTime
+import org.scala_tools.time.Imports._
 
 abstract class IrcResponse {
 	def toIrcOutgoingLine(user : IrcUser) : IrcOutgoingLine
@@ -42,7 +44,7 @@ case class RPL_USERHOST(user : User) extends IrcServerResponse(302, user.nicknam
 case class RPL_WHOISUSER(user : User) extends IrcServerResponse(311, user.realname, user.nickname, user.username, user.hostname, "*")
 case class RPL_WHOISSERVER(user : User) extends IrcServerResponse(312, IrcConstants.OUR_NAME, user.nickname, IrcConstants.OUR_HOST)
 
-case class RPL_WHOISIDLE(user : User) extends IrcServerResponse(317, "seconds idle", user.nickname, "1337") // TODO
+case class RPL_WHOISIDLE(user : User) extends IrcServerResponse(317, "seconds idle", user.nickname, (((DateTime.now.getMillis - user.lastActivity.getMillis) / 1000).round).toString) // TODO
 case class RPL_ENDOFWHOIS(user : User) extends IrcServerResponse(318, "End of /WHOIS list")
 case class RPL_WHOISCHANNELS(user : User) extends IrcServerResponse(319,
 	Server.channels

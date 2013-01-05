@@ -20,7 +20,6 @@ class IrcUser(val channel : NettyChannel, address2 : InetSocketAddress) extends 
 	var ds : ActorRef = null
 	var us : ActorRef = null
 	var pinger : ActorRef = null
-	var lastActivity : DateTime = DateTime.now
 	var deathMode = false
 	var dies : DateTime = DateTime.now + 10.years
 

@@ -4,6 +4,7 @@ import akka.actor.ActorRef
 import de.abbaddie.rirc.connector.IrcConstants
 import java.net.InetSocketAddress
 import de.abbaddie.rirc.service.AuthAccount
+import org.joda.time.DateTime
 
 abstract class User extends GenericTarget {
 	var nickname : String = IrcConstants.UNASSIGNED_NICK
@@ -31,4 +32,6 @@ abstract class User extends GenericTarget {
 
 	def fullString = nickname + "!" + username + "@" + hostname
 	def extendedString = nickname + "!" + username + "@" + hostname + "#" + uid
+
+	var lastActivity : DateTime = DateTime.now
 }
