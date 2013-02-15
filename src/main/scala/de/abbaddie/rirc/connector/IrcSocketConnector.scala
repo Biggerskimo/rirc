@@ -12,7 +12,7 @@ import java.net.InetSocketAddress
 import de.abbaddie.rirc.main.Server
 import de.abbaddie.jmunin.Munin
 
-class IrcSocketConnector(val port : Int) extends Logging {
+class IrcSocketConnector(val port : Int) extends Connector with Logging {
 	def this() = this(DEFAULT_PORT)
 
 	def start() {
