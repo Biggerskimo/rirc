@@ -13,6 +13,7 @@ import collection.mutable
 import java.net.InetSocketAddress
 import org.joda.time.DateTime
 import org.scala_tools.time.Imports._
+import de.abbaddie.jmunin.Munin
 
 class IrcUser(val channel : NettyChannel, address2 : InetSocketAddress) extends User {
 	def initActor() = Server.actorSystem.actorOf(Props(new IrcUserSystemActor(IrcUser.this)), name = uid.toString)
@@ -442,10 +443,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 class IrcUserDownstreamActor(val user : IrcUser, val channel : NettyChannel) extends Actor with Logging {
 	def receive = {
 		case message =>
-			if(message.isInstanceOf[IrcResponse])
+			if(message.isInstanceOf[IrcResponse]) {
 				channel.write(message.asInstanceOf[IrcResponse].toIrcOutgoingLine(user))
-			else if(message.isInstanceOf[IrcOutgoingLine])
-				channel.write(message)
+				Munin.inc("irc-out")
+			}
 			else
 				error("Dropped message in IrcUserDownStreamActor for " + user.nickname + ": " + message + ", sent by " + context.sender)
 	}

@@ -5,12 +5,17 @@ import de.abbaddie.rirc.connector.IrcSocketConnector
 import de.abbaddie.rirc.service._
 import com.typesafe.config.ConfigFactory
 import grizzled.slf4j.Logger
+import de.abbaddie.jmunin.Munin
 
 object Starter {
 	val logger = Logger[Starter.type]
 
 	def main(args: Array[String]) {
 		logger.info("Starting...")
+
+		// setup munin
+		Munin("connected", Server.users.size)("title" -> "Verbundene Nutzer", "vlabel" -> "Nutzer")()
+		Munin("events")("title" -> "Globale Events", "vlabel" -> "Events")("type" -> "DERIVE", "min" -> 0)
 
 		// setup server object
 		val config = ConfigFactory.load()

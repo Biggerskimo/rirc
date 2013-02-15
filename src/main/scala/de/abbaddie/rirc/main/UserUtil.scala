@@ -36,16 +36,17 @@ object UserUtil {
 				false
 		}
 	}
-	def cleanMask(mask : String) = { mask match {
-			case regex(nickmask, "", "") => nickmask + "!*@*"
-			case regex("", usermask, "") => "*!" + usermask + "@*"
-			case regex("", "", hostmask) => "*!*@" + hostmask
-			case regex(nickmask, usermask, "") => nickmask + "!" + usermask + "@*"
-			case regex(nickmask, "", hostmask) => nickmask + "!*@" + hostmask
-			case regex("", nickmask, hostmask) => "*!" + nickmask + "@" + hostmask
-			case regex(nickmask, usermask, hostmask) => nickmask + "!" + usermask + "@" + hostmask
-			case _ => "I!AM@INVALID"
-		}
+
+	//def cleanMask(mask : String) = { mask match {
+	def cleanMask: String => String = {
+		case regex(nickmask, "", "") => nickmask + "!*@*"
+		case regex("", usermask, "") => "*!" + usermask + "@*"
+		case regex("", "", hostmask) => "*!*@" + hostmask
+		case regex(nickmask, usermask, "") => nickmask + "!" + usermask + "@*"
+		case regex(nickmask, "", hostmask) => nickmask + "!*@" + hostmask
+		case regex("", nickmask, hostmask) => "*!" + nickmask + "@" + hostmask
+		case regex(nickmask, usermask, hostmask) => nickmask + "!" + usermask + "@" + hostmask
+		case _ => "I!AM@INVALID"
 	}
 
 	protected def matchConcrete(string : String, mask : String) = string.matches("\\Q" + mask.replace("*", "\\E.*\\Q") + "\\E")

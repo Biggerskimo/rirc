@@ -10,11 +10,15 @@ import IrcConstants._
 import org.jboss.netty.buffer.{ChannelBuffers, ChannelBuffer}
 import java.net.InetSocketAddress
 import de.abbaddie.rirc.main.Server
+import de.abbaddie.jmunin.Munin
 
 class IrcSocketConnector(val port : Int) extends Logging {
 	def this() = this(DEFAULT_PORT)
 
 	def start() {
+		Munin("irc-in")("title" -> "IRC/Eingehende Nachrichten", "vlabel" -> "Nachrichten")("type" -> "DERIVE", "min" -> 0)
+		Munin("irc-out")("title" -> "IRC/Ausgehende Nachrichten", "vlabel" -> "Nachrichten")("type" -> "DERIVE", "min" -> 0)
+
 		val bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool, Executors.newCachedThreadPool))
 		bootstrap.setPipelineFactory(new ChannelPipelineFactory {
 			def getPipeline: ChannelPipeline = {

@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import akka.pattern.ask
 import scala.concurrent.Future
 import grizzled.slf4j.Logging
+import de.abbaddie.jmunin.Munin
 
 class RircEventBus extends ActorEventBus with Logging {
 	type Event = Message
@@ -47,6 +48,8 @@ class RircEventBus extends ActorEventBus with Logging {
 	}
 
 	def publish(event: Message) {
+		Munin.inc("events")
+
 		var actors: Set[ActorRef] = mutable.HashSet()
 
 		if(event.isInstanceOf[BroadcastMessage]) {

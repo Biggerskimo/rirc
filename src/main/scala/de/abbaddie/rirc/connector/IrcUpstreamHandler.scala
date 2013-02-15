@@ -5,6 +5,7 @@ import java.net.InetSocketAddress
 import org.joda.time.DateTime
 import de.abbaddie.rirc.main.{QuitMessage, Server}
 import grizzled.slf4j.Logging
+import de.abbaddie.jmunin.Munin
 
 class IrcUpstreamHandler extends SimpleChannelUpstreamHandler with Logging {
 	var user : IrcUser = null
@@ -23,6 +24,7 @@ class IrcUpstreamHandler extends SimpleChannelUpstreamHandler with Logging {
 	}
 
 	override def messageReceived(ctx: ChannelHandlerContext, e: MessageEvent) {
+		Munin.inc("irc-in")
 		val readLine = e.getMessage.asInstanceOf[IrcIncomingLine]
 
 		user.us ! readLine
