@@ -3,6 +3,7 @@ package de.abbaddie.rirc.connector
 import akka.util.ByteString
 import concurrent.duration._
 import com.typesafe.config.Config
+import de.abbaddie.rirc.main.Server
 
 object IrcConstants {
 	var config : Config = null
@@ -25,6 +26,8 @@ object IrcConstants {
 	lazy val OUR_VERSION = config.getString("version")
 	lazy val OUR_NAME = config.getString("name")
 	lazy val OUR_HOST = config.getString("host")
+
+	lazy val AUTH_USERSTRING = Server.users(config.getString("auth-nick")).fullString
 
 	def isRegularWhitespace(b : Byte) = (b == ' ' || b == '\t')
 	def isLineBreak(b : Byte) = (b == '\n' || b == '\r')

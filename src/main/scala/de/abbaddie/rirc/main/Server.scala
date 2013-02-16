@@ -14,7 +14,8 @@ object Server {
 	var authProvider : AuthProvider = null
 	var authSys : ActorRef = null
 	var channelProvider : ChannelProvider = null
-	var systemUser : User = null
+	//var systemUser : User = null
+	var reservedNicks : Set[String] = null
 
 	var channels : Map[String, Channel] = HashMap()
 	var users : Map[String, User] = HashMap()

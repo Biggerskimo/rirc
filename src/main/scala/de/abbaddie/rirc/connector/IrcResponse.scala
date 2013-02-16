@@ -201,10 +201,8 @@ case class MSG_KICK(channel : Channel, kicker : User, kicked : User) extends Irc
 /** SERVICE **/
 abstract class IrcServiceResponse(message : String) extends IrcResponse {
 	def toIrcOutgoingLine(user: IrcUser) = {
-		new IrcOutgoingLine(Some(userSourceString(Server.systemUser)), "NOTICE", user.nickname, message)
+		new IrcOutgoingLine(Some(IrcConstants.AUTH_USERSTRING), "NOTICE", user.nickname, message)
 	}
-
-	val userSourceString = (user : User) => user.nickname + "!" + user.username + "@" + user.hostname
 }
 
 case class SVC_AUTHSUCCESS() extends IrcServiceResponse("Du wurdest erfolgreich angemeldet.")

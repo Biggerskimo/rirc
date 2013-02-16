@@ -18,6 +18,7 @@ class RircEventBus extends ActorEventBus with Logging {
 	val DUMMY = AnyRef
 	// used as a map containing sets
 	val subscriptions : concurrent.Map[RircEventClassifier, concurrent.Map[ActorRef, Any]] = concurrent.TrieMap()
+	val services : concurrent.Map[ActorRef, Any] = concurrent.TrieMap()
 
 	val important : concurrent.Map[ActorRef, Any] = concurrent.TrieMap()
 
@@ -28,6 +29,10 @@ class RircEventBus extends ActorEventBus with Logging {
 		val Some(set) = subscriptions get to
 
 		set.putIfAbsent(subscriber, DUMMY) == None
+	}
+
+	def subscribeService(subscriber: ActorRef): Boolean = {
+		services.putIfAbsent(subscriber, DUMMY) == None
 	}
 
 	def unsubscribe(subscriber: ActorRef, from: RircEventClassifier): Boolean = {
@@ -83,12 +88,12 @@ class RircEventBus extends ActorEventBus with Logging {
 			Server.authSys ! event
 		}
 
-		if(event.isInstanceOf[BroadcastMessage] || event.isInstanceOf[ServiceMessage]) {
-			Server.systemUser.actor ! event
-		}
-
 		implicit val timeout = Timeout(1, TimeUnit.SECONDS)
 		implicit val actorSystem = Server.actorSystem.dispatcher
+
+		if(event.isInstanceOf[BroadcastMessage] || event.isInstanceOf[ServiceMessage]) {
+			services.keysIterator foreach (_ ? event)
+		}
 
 		val firstBatch = Future.sequence(actors filter(important.contains(_)) map (_ ? event))
 

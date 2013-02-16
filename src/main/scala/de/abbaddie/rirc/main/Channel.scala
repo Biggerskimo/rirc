@@ -4,7 +4,6 @@ import akka.actor.{Props, Actor}
 import collection.immutable.{HashSet, HashMap}
 import org.joda.time.DateTime
 import grizzled.slf4j.Logging
-import de.abbaddie.rirc.service.ChannelHelper
 
 class ChannelUserInformation(val user : User) {
 	var isOp = false
@@ -36,8 +35,7 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 		case JoinMessage(_, user) =>
 			channel.users += (user -> new ChannelUserInformation(user))
 			if(channel.users.size == 1) channel.users(user).isOp = true
-			if(user == Server.systemUser) channel.users(user).isOp = true
-			ChannelHelper.checkUser(channel, user)
+			if(user.isSystemUser) channel.users(user).isOp = true
 			sender ! null
 
 		case PartMessage(_, user, _) =>
