@@ -45,7 +45,7 @@ case class AuthStart(user : User, name : String, password : String) extends Mess
 
 case class AuthSuccess(user : User, account : AuthAccount) extends Message with ServiceMessage with UserMessage
 
-case class AuthFailure(user : User, name : String) extends Message with UserMessage
+case class AuthFailure(user : User, name : String, message : String) extends Message with UserMessage
 
 case class BanMessage(channel : Channel, user : User, mask : String) extends Message with ChannelMessage
 
@@ -86,6 +86,12 @@ case class PublicNoticeMessage(channel : Channel, user : User, text : String) ex
 case class PublicTextMessage(channel : Channel, user : User, text : String) extends Message with ChannelMessage
 
 case class QuitMessage(user : User, message : Option[String]) extends Message with BroadcastMessage
+
+case class RegistrationStart(user : User, name : String, password : String, emailAddress : String) extends Message with AuthMessage
+
+case class RegistrationSuccess(user : User, account : AuthAccount) extends Message with ServiceMessage with UserMessage
+
+case class RegistrationFailure(user : User, name : String, message : String) extends Message with UserMessage
 
 case class ServiceCommandMessage(channel : Channel, user : User, command : String, params : String*) extends Message with ServiceMessage
 

@@ -27,7 +27,7 @@ object IrcConstants {
 	lazy val OUR_NAME = config.getString("name")
 	lazy val OUR_HOST = config.getString("host")
 
-	lazy val AUTH_USERSTRING = Server.users(config.getString("auth-nick")).fullString
+	lazy val AUTH_USERSTRING = Server.users(config.getString("auth-nickname")).fullString
 
 	def isRegularWhitespace(b : Byte) = (b == ' ' || b == '\t')
 	def isLineBreak(b : Byte) = (b == '\n' || b == '\r')

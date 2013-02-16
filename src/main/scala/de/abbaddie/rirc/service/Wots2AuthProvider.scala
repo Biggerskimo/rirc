@@ -1,35 +1,44 @@
 package de.abbaddie.rirc.service
 
-import collection.immutable.HashMap
-import akka.actor.{ActorSystem, Actor}
-import com.typesafe.config.ConfigFactory
+import akka.actor._
+import com.typesafe.config.{Config, ConfigFactory}
 import de.abbaddie.wot.rirc._
 import akka.pattern._
-import de.abbaddie.rirc.main.{DefaultRircModule, User, Server}
+import de.abbaddie.rirc.main.{ConnectMessage, User, DefaultRircModule, Server}
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
-import concurrent.{Promise, Future}
+import concurrent.Future
 import grizzled.slf4j.Logging
 import org.mindrot.jbcrypt.BCrypt
 
 class Wots2AuthProvider extends DefaultRircModule with AuthProvider with Logging {
-	val key = "wots2"
 	implicit val dispatcher = Server.actorSystem.dispatcher
 	implicit val timeout = Timeout(1, TimeUnit.SECONDS)
 
+	override def init() {}
+
 	protected def comInternal(user : String, password : String, checkPassword : Boolean) = {
-		remoteActor ? new AuthRequest(user) map {
+		(remoteActor ? new AuthRequest(user))
+		.map {
 			case resp : AuthResponse if resp.found && (!checkPassword || BCrypt.checkpw(password, resp.hash)) =>
-				Some(new AuthAccount(user, resp.isOper))
+				new AuthAccount(user, resp.isOper)
+			case resp : AuthResponse if resp.found =>
+				"Der Account " + user + " wurde nicht gefunden."
 			case resp : AuthResponse =>
-				None
+				"Das Passwort ist falsch."
 			case resp =>
 				error("Dropped illegal response from wots2-connector: " + resp)
-				None
+				"Unbekannter Fehler."
+		}
+
+		.recover {
+			case ex =>
+				error(ex)
+				"Es konnte keine Verbindung aufgebaut werden; probier es später nochmal oder mecker den Admin an."
 		}
 	}
 
-	def register(user : String, password : String, mail : String) : Future[Option[String]] = Future(Some("please register via the website."))
+	def register(user : String, password : String, mail : String) : Future[String] = Future("Du musst dich über die Webseite registrieren.")
 
 	def isValid(user : String, password : String) = comInternal(user, password, checkPassword = true)
 

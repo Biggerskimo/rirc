@@ -207,7 +207,11 @@ abstract class IrcServiceResponse(message : String) extends IrcResponse {
 
 case class SVC_AUTHSUCCESS() extends IrcServiceResponse("Du wurdest erfolgreich angemeldet.")
 
-case class SVC_AUTHFAILURE() extends IrcServiceResponse("Die Anmeldung ist fehlgeschlagen.")
+case class SVC_AUTHFAILURE(message : String) extends IrcServiceResponse(message)
+
+case class SVC_REGISTRATIONSUCCESS() extends IrcServiceResponse("Du wurdest erfolgreich registriert.")
+
+case class SVC_REGISTRATIONFAILURE(message : String) extends IrcServiceResponse(message)
 
 /** EXTRA **/
 case class CMD_PING() extends IrcResponse {

@@ -8,26 +8,36 @@ class MemoryAuthProvider extends DefaultRircModule with AuthProvider {
 	val key = "memory"
 
 	var memory : Map[String, String] = HashMap()
+	var oper : String = ""
 
 	implicit val dispatcher = Server.actorSystem.dispatcher
 
-	def register(user : String, password : String, mail : String) : Future[Option[String]] = {
+	def init() {}
+
+	def register(user : String, password : String, mail : String) : Future[_] = {
 		memory get user match {
 			case Some(_) =>
-				Future(Some("There is already a user named '" + user + "'"))
+				Future("Es ist bereits jemand unter dem Namen '" + user + "' registriert.")
 			case None =>
 				memory += (user -> password)
-				Future(None)
+				if(memory.size == 0) oper = user
+				Future(new AuthAccount(user, user == oper))
 		}
 	}
 
-	def isValid(user : String, password : String) : Future[Option[AuthAccount]] = {
-		if(memory.contains(user) && memory(user) == password) Future(Some(new AuthAccount(user, false)))
-		else Future(None)
+	def isValid(user : String, password : String) : Future[_] = {
+		memory get user match {
+			case Some(saved) if saved == password =>
+				Future(new AuthAccount(user, user == oper))
+			case Some(saved) =>
+				Future("Das angegebene Passwort stimmt nicht.")
+			case None =>
+				Future("Es wurde kein Nutzer mit diesem Namen gefunden.")
+		}
 	}
 
 	def lookup(user : String) = {
-		if(memory.contains(user)) Future(Some(new AuthAccount(user, false)))
-		else Future(None)
+		if(memory.contains(user)) Future(new AuthAccount(user, user == oper))
+		else Future("Es wurde kein Nutzer mit diesem Namen gefunden.")
 	}
 }

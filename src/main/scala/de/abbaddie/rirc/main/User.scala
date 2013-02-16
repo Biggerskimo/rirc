@@ -7,11 +7,12 @@ import de.abbaddie.rirc.service.AuthAccount
 import org.joda.time.DateTime
 
 abstract class User extends GenericTarget {
-	var nickname : String = IrcConstants.UNASSIGNED_NICK
-	var username : String = IrcConstants.UNASSIGNED_USERNAME
-	var realname : String = IrcConstants.UNASSIGNED_REALNAME
-	protected var address : InetSocketAddress = null
-	def hostname = address.getHostName
+	def nickname : String
+	def username : String
+	def realname : String
+	def hostname : String
+
+
 	var authacc : Option[AuthAccount] = None
 	var isOper = false
 

@@ -5,7 +5,6 @@ import akka.pattern.ask
 import de.abbaddie.rirc.main._
 import org.jboss.netty.channel.{Channel => NettyChannel}
 import grizzled.slf4j.Logging
-import scala.Some
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
 import concurrent.Await
@@ -14,8 +13,10 @@ import java.net.InetSocketAddress
 import org.joda.time.DateTime
 import org.scala_tools.time.Imports._
 import de.abbaddie.jmunin.Munin
+import scala.Some
+import de.abbaddie.rirc.main._
 
-class IrcUser(val channel : NettyChannel, address2 : InetSocketAddress) extends User {
+class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) extends User {
 	def initActor() = Server.actorSystem.actorOf(Props(new IrcUserSystemActor(IrcUser.this)), name = uid.toString)
 
 	var ds : ActorRef = null
@@ -24,7 +25,12 @@ class IrcUser(val channel : NettyChannel, address2 : InetSocketAddress) extends 
 	var deathMode = false
 	var dies : DateTime = DateTime.now + 10.years
 
-	address = address2
+	override def isSystemUser = false
+
+	var nickname = IrcConstants.UNASSIGNED_NICK
+	var username = IrcConstants.UNASSIGNED_USERNAME
+	var realname = IrcConstants.UNASSIGNED_REALNAME
+	val hostname = address.getHostName
 
 	// ensure ds + us
 	implicit val timeout = Timeout(1, TimeUnit.SECONDS)
@@ -104,8 +110,16 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			user.authacc = Some(account)
 			user.isOper = account.isOper
 
-		case AuthFailure(_, _) =>
-			user.ds ! SVC_AUTHFAILURE()
+		case AuthFailure(_, _, message) =>
+			user.ds ! SVC_AUTHFAILURE(message)
+
+		case RegistrationSuccess(_, account) =>
+			user.ds ! SVC_REGISTRATIONSUCCESS()
+			user.authacc = Some(account)
+			user.isOper = account.isOper
+
+		case RegistrationFailure(_, _, message) =>
+			user.ds ! SVC_REGISTRATIONFAILURE(message)
 
 		case ChannelModeChangeMessage(channel, sender, INVITE_ONLY(yes)) =>
 			val flag = if(yes) "+" else "-"
@@ -341,8 +355,13 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					user.ds ! ERR_NOSUCHNICK(name)
 			}
 
+		case IrcIncomingLine("REGISTER", name, password, mail) =>
+			if(user.authacc.isDefined) user.ds ! SVC_REGISTRATIONFAILURE("Du bist bereits eingeloggt.")
+			else Server.events ! RegistrationStart(user, name, password, mail)
+
 		case IrcIncomingLine("LOGIN", name, password) =>
-			Server.events ! AuthStart(user, name, password)
+			if(user.authacc.isDefined) user.ds ! SVC_AUTHFAILURE("Du bist bereits eingeloggt.")
+			else Server.events ! AuthStart(user, name, password)
 
 		case IrcIncomingLine("INVITE", uname, cname) =>
 			(Server.users get uname, Server.channels get cname) match {

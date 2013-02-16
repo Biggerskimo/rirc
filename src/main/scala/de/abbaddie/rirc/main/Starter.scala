@@ -50,6 +50,7 @@ object Starter {
 			case first :: Nil =>
 				val module = Class.forName(first.getString("class")).newInstance().asInstanceOf[AuthProvider]
 				module.config = first
+				module.init()
 
 				Server.authProvider = module
 				Server.authSys = Server.actorSystem.actorOf(Props[AuthSystem])

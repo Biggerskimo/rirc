@@ -17,23 +17,22 @@ import de.abbaddie.rirc.main.ServiceCommandMessage
 import de.abbaddie.rirc.main.KickMessage
 import de.abbaddie.rirc.main.PrivateNoticeMessage
 import de.abbaddie.rirc.main.QuitMessage
-import java.net.InetSocketAddress
 import com.typesafe.config.Config
 
 class ChanServ extends DefaultRircModule with RircAddon {
 	def init() {
-		new ChanServUser(config)
+		val user = new ChanServUser(config)
+		Server.events ! ConnectMessage(user)
 	}
 }
 
 class ChanServUser(config : Config) extends User {
 	def initActor(): ActorRef = Server.actorSystem.actorOf(Props(new ChanServActor(this)), name = "ChanServ")
 
-	nickname = config.getString("nickname")
-	username = config.getString("username")
-	realname = config.getString("realname")
-	override val hostname = config.getString("hostname")
-	address = new InetSocketAddress(hostname, 0)
+	val nickname = config.getString("nickname")
+	val username = config.getString("username")
+	val realname = config.getString("realname")
+	val hostname = config.getString("hostname")
 }
 
 class ChanServActor(val suser : User) extends Actor with Logging {
@@ -111,14 +110,15 @@ class ChanServActor(val suser : User) extends Actor with Logging {
 		case JoinMessage(channel, user) =>
 			checkUser(channel, user)
 
-		case QuitMessage(_, _) |
+		case ConnectMessage(_) |
+			 QuitMessage(_, _) |
 			 KickMessage(_, _, _) |
 			 BanMessage(_, _, _) |
 			 BanMessage(_, _, _) =>
 
 
 		case message =>
-			error("Dropped message in SystemUserActor: " + message + ", sent by " + context.sender)
+			error("Dropped message in ChanServUserActor: " + message + ", sent by " + context.sender)
 	}
 
 	def userChange(channel : Channel, user : User, name : String, todo : ChannelDescriptor => (String => Unit), message : String) {
@@ -145,9 +145,9 @@ class ChanServActor(val suser : User) extends Actor with Logging {
 		if(name startsWith "*") {
 			val accName = name.tail
 			Await.result(Server.authProvider.lookup(accName), timeout.duration) match {
-				case Some(acc) =>
+				case acc : AuthAccount =>
 					Some(acc)
-				case None => None
+				case _ => None
 			}
 		}
 		else {
