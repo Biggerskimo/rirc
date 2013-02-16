@@ -1,6 +1,6 @@
 package de.abbaddie.rirc.service
 
-import de.abbaddie.rirc.main.{Server, Channel}
+import de.abbaddie.rirc.main.{DefaultRircModule, Server, Channel}
 import scala.concurrent.duration._
 import beans.BeanProperty
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
@@ -12,7 +12,7 @@ import org.joda.time.DateTime
 import java.util.{List => JavaList}
 import java.util.{ArrayList => JavaArrayList}
 
-class YamlFileChannelProvider extends ChannelProvider {
+class YamlFileChannelProvider extends DefaultRircModule with ChannelProvider {
 	val yaml = new Yaml(new Constructor(classOf[YamlChannel]))
 	var channels : Map[String, YamlChannel] = HashMap()
 	val dumperOptions = new DumperOptions

@@ -9,15 +9,15 @@ import org.jboss.netty.handler.codec.frame.DelimiterBasedFrameDecoder
 import IrcConstants._
 import org.jboss.netty.buffer.{ChannelBuffers, ChannelBuffer}
 import java.net.InetSocketAddress
-import de.abbaddie.rirc.main.Server
+import de.abbaddie.rirc.main.{DefaultRircModule, Server}
 import de.abbaddie.jmunin.Munin
 
-class IrcSocketConnector(val port : Int) extends Connector with Logging {
-	def this() = this(DEFAULT_PORT)
-
+class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 	def start() {
 		Munin("irc-in")("title" -> "IRC/Eingehende Nachrichten", "vlabel" -> "Nachrichten")("type" -> "DERIVE", "min" -> 0)
 		Munin("irc-out")("title" -> "IRC/Ausgehende Nachrichten", "vlabel" -> "Nachrichten")("type" -> "DERIVE", "min" -> 0)
+
+		IrcConstants.config = config
 
 		val bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool, Executors.newCachedThreadPool))
 		bootstrap.setPipelineFactory(new ChannelPipelineFactory {
@@ -31,7 +31,7 @@ class IrcSocketConnector(val port : Int) extends Connector with Logging {
 			}
 		})
 
-		bootstrap.bind(new InetSocketAddress(port))
+		bootstrap.bind(new InetSocketAddress(IrcConstants.PORT))
 	}
 
 	implicit def toChannelBuffer(c : Char) : ChannelBuffer = ChannelBuffers.wrappedBuffer(Array(c.toByte))

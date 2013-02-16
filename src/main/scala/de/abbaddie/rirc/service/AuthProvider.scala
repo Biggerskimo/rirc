@@ -1,9 +1,9 @@
 package de.abbaddie.rirc.service
 
 import concurrent.Future
+import de.abbaddie.rirc.main.RircModule
 
-
-trait AuthProvider {
+trait AuthProvider extends RircModule {
 	def key : String
 
 	def register(name : String, password : String, mail : String) : Future[Option[String]]

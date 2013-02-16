@@ -2,9 +2,12 @@ package de.abbaddie.rirc.connector
 
 import akka.util.ByteString
 import concurrent.duration._
+import com.typesafe.config.Config
 
 object IrcConstants {
-	var COLON = ByteString(":")
+	var config : Config = null
+
+	val COLON = ByteString(":")
 	val WHITESPACE = ByteString(" \t\n\r")
 	val CRLF = ByteString("\r\n")
 	val CR = ByteString("\r")
@@ -13,15 +16,15 @@ object IrcConstants {
 	val UNASSIGNED_NICK = "?"
 	val UNASSIGNED_USERNAME = "?"
 	val UNASSIGNED_REALNAME = "?"
-	val DEFAULT_PORT = 6667
+	lazy val PORT = config.getInt("port")
 	val MAX_LINE_LEN = 512 // http://tools.ietf.org/html/rfc1459.html#section-2.3
-	val OWNER = "Biggerskimo"
+	lazy val OWNER = config.getString("owner")
 	val TIMEOUT = 60.seconds
 	val TIMEOUT_TICK = 5.seconds
 
-	val OUR_VERSION = "1.0.0-SUPERBETA"
-	val OUR_NAME = "SUPERNET"
-	val OUR_HOST = "dyn.abbaddie.de"
+	lazy val OUR_VERSION = config.getString("version")
+	lazy val OUR_NAME = config.getString("name")
+	lazy val OUR_HOST = config.getString("host")
 
 	def isRegularWhitespace(b : Byte) = (b == ' ' || b == '\t')
 	def isLineBreak(b : Byte) = (b == '\n' || b == '\r')

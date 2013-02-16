@@ -2,9 +2,9 @@ package de.abbaddie.rirc.service
 
 import collection.immutable.HashMap
 import concurrent.Future
-import de.abbaddie.rirc.main.Server
+import de.abbaddie.rirc.main.{DefaultRircModule, Server}
 
-class MemoryAuthProvider extends AuthProvider {
+class MemoryAuthProvider extends DefaultRircModule with AuthProvider {
 	val key = "memory"
 
 	var memory : Map[String, String] = HashMap()

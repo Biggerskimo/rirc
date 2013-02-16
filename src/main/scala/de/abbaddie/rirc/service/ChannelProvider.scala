@@ -1,10 +1,10 @@
 package de.abbaddie.rirc.service
 
-import de.abbaddie.rirc.main.Channel
+import de.abbaddie.rirc.main.{RircModule, Channel}
 import org.joda.time.DateTime
 import java.io.OptionalDataException
 
-trait ChannelProvider {
+trait ChannelProvider extends RircModule {
 	def register(channel : Channel, owner : AuthAccount, oper : AuthAccount)
 
 	def registeredChannels : Map[String, ChannelDescriptor]
