@@ -11,8 +11,10 @@ sealed trait AuthMessage {
 	def user : User
 }
 
-sealed trait BroadcastMessage {
+sealed trait ScopedBroadcastMessage {
 	this: Message =>
+
+	def user : User
 }
 
 sealed trait ChannelMessage {
@@ -22,10 +24,6 @@ sealed trait ChannelMessage {
 }
 
 sealed trait ServerMessage {
-	this: Message =>
-}
-
-sealed trait ServiceMessage {
 	this: Message =>
 }
 
@@ -43,7 +41,7 @@ case class UserClassifier(user : User) extends RircEventClassifier
 /** CONCRETE */
 case class AuthStart(user : User, name : String, password : String) extends Message with AuthMessage
 
-case class AuthSuccess(user : User, account : AuthAccount) extends Message with ServiceMessage with UserMessage
+case class AuthSuccess(user : User, account : AuthAccount) extends Message with ScopedBroadcastMessage with UserMessage
 
 case class AuthFailure(user : User, name : String, message : String) extends Message with UserMessage
 
@@ -67,7 +65,7 @@ case class KickMessage(channel : Channel, kicker : User, kicked : User) extends 
 	def user = kicked
 }
 
-case class NickchangeMessage(user : User, oldNick : String, newNick : String) extends Message with BroadcastMessage
+case class NickchangeMessage(user : User, oldNick : String, newNick : String) extends Message with ScopedBroadcastMessage
 
 case class PartMessage(channel : Channel, user : User, text : Option[String]) extends Message with ChannelMessage with UserMessage
 
@@ -85,15 +83,15 @@ case class PublicNoticeMessage(channel : Channel, user : User, text : String) ex
 
 case class PublicTextMessage(channel : Channel, user : User, text : String) extends Message with ChannelMessage
 
-case class QuitMessage(user : User, message : Option[String]) extends Message with BroadcastMessage
+case class QuitMessage(user : User, message : Option[String]) extends Message with ScopedBroadcastMessage
 
 case class RegistrationStart(user : User, name : String, password : String, emailAddress : String) extends Message with AuthMessage
 
-case class RegistrationSuccess(user : User, account : AuthAccount) extends Message with ServiceMessage with UserMessage
+case class RegistrationSuccess(user : User, account : AuthAccount) extends Message with ScopedBroadcastMessage with UserMessage
 
 case class RegistrationFailure(user : User, name : String, message : String) extends Message with UserMessage
 
-case class ServiceCommandMessage(channel : Channel, user : User, command : String, params : String*) extends Message with ServiceMessage
+case class ServiceCommandMessage(channel : Channel, user : User, command : String, params : String*) extends Message with ChannelMessage
 
 case class TopicChangeMessage(channel : Channel, user : User, oldTopic : Option[String], newTopic : String) extends Message with ChannelMessage
 

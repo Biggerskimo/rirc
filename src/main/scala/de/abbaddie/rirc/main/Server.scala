@@ -1,15 +1,17 @@
 package de.abbaddie.rirc.main
 
 import akka.actor.{ActorRef, Actor, ActorSystem}
-import collection.immutable.HashMap
+import scala.collection.immutable.{HashSet, HashMap}
 import de.abbaddie.rirc.service.{ChannelProvider, AuthProvider}
 import grizzled.slf4j.Logging
+import com.typesafe.config.Config
 
 object Server {
 	var actorSystem : ActorSystem = null
 	var actor : ActorRef = null
 	val eventBus = new RircEventBus
 	val events = eventBus
+	var config : Config = null
 
 	var authProvider : AuthProvider = null
 	var authSys : ActorRef = null
@@ -19,7 +21,23 @@ object Server {
 
 	var channels : Map[String, Channel] = HashMap()
 	var users : Map[String, User] = HashMap()
+	var userNicks : Set[String] = HashSet()
 	val targets = TargetHelper
+
+	def isValidNick(nick : String) =
+		nick.length >= config.getInt("nicklen_min") &&
+		nick.length <= config.getInt("nicklen_max") &&
+		nick.matches("^[A-Za-z\\[\\]\\{\\}\\\\`\\|^][A-Za-z0-9\\[\\]\\{\\}\\\\`\\|^-]*$")
+
+	def nickToLowerCase(nick : String) =
+		nick.map({
+			case c if c >= 'A' && c <= 'Z' => c.toLower
+			case '[' => '{'
+			case ']' => '}'
+			case '|' => '\\'
+			case '^' => '~'
+			case c => c
+		})
 }
 
 object TargetHelper {
@@ -34,6 +52,7 @@ class ServerActor extends Actor with Logging {
 	def receive = {
 		case ConnectMessage(user) =>
 			users += (user.nickname -> user)
+			userNicks += nickToLowerCase(user.nickname)
 			info(user.extendedString + " connected")
 		case ChannelCreationMessage(channel, user) =>
 			channels += (channel.name -> channel)
@@ -41,9 +60,12 @@ class ServerActor extends Actor with Logging {
 			channels -= channel.name
 		case QuitMessage(user, _) =>
 			users -= user.nickname
+			userNicks -= nickToLowerCase(user.nickname)
 			info(user.extendedString + " disconnected")
 		case NickchangeMessage(user, oldNick, newNick) =>
 			users += (newNick -> user)
+			userNicks += nickToLowerCase(newNick)
 			users -= oldNick
+			userNicks -= nickToLowerCase(oldNick)
 	}
 }

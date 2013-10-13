@@ -35,7 +35,6 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 		case JoinMessage(_, user) =>
 			channel.users += (user -> new ChannelUserInformation(user))
 			if(channel.users.size == 1) channel.users(user).isOp = true
-			if(user.isSystemUser) channel.users(user).isOp = true
 			sender ! null
 
 		case PartMessage(_, user, _) =>
@@ -68,6 +67,7 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 
 		case InvitationMessage(_, _, invited) =>
 			channel.invited += invited
+			sender ! null
 
 		case KickMessage(_, _, kicked) =>
 			rmUser(kicked)
@@ -75,15 +75,22 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 
 		case BanMessage(_, _, mask) =>
 			channel.bans ::= mask
+			sender ! null
 
 		case UnbanMessage(_, _, mask) =>
 			channel.bans = channel.bans filter(_ != mask)
+			sender ! null
 
 		case ChannelCloseMessage(_) |
 			 ChannelCreationMessage(_, _) |
 			 PublicTextMessage(_, _, _) |
-			 PublicNoticeMessage(_, _, _) =>
+			 PublicNoticeMessage(_, _, _) |
+			 NickchangeMessage(_, _, _) |
+			 AuthSuccess(_, _) =>
 			// ignore
+			sender ! null
+
+		case ServiceCommandMessage(_, _, _, seq @ _*) =>
 			sender ! null
 
 		case message: Any =>

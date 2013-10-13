@@ -35,11 +35,30 @@ case class IrcSimpleResponse(command : String, params : String*) extends IrcResp
 
 // http://tools.ietf.org/html/rfc2812#section-5.1
 case class RPL_WELCOME() extends IrcServerResponse(1, "Welcome to the " + IrcConstants.OUR_NAME)
-case class RPL_YOURHOST() extends IrcServerResponse(2, "Your host is " + IrcConstants.OUR_HOST + ", running version" + IrcConstants.OUR_VERSION)
+case class RPL_YOURHOST() extends IrcServerResponse(2, "Your host is " + IrcConstants.OUR_HOST + ", running version " + IrcConstants.OUR_VERSION)
 case class RPL_CREATED() extends IrcServerResponse(3, "This server was created a not so long time ago.")
-case class RPL_MYINFO() extends IrcServerResponse(4, IrcConstants.OUR_HOST + " " + IrcConstants.OUR_VERSION + "  ")
+case class RPL_MYINFO() extends IrcServerResponse(4, IrcConstants.OUR_HOST + " " + IrcConstants.OUR_VERSION + " ")
+case class RPL_ISUPPORT() extends IrcServerResponse(5, "are supported by this server",
+	"PREFIX=(ov)@+ " +
+	"CHANTYPES=# " +
+	"CHANMODES=b,k,l,imna " + // TODO
+	"MODES=9 " + // TODO
+	"MAXCHANNELS=20 " + // TODO
+	"MAXBANS=100 " + // TODO
+	"NETWORK=" + IrcConstants.OUR_NAME + " " +
+	"CASEMAPPING=rfc1459" +
+	"TOPICLEN=200" + // TODO
+	"KICKLEN=200" + // TODO
+	"CHANNELLEN=20" + // TODO
+	"NICKLEN=24" // TODO
+)
 
-case class RPL_USERHOST(user : User) extends IrcServerResponse(302, user.nickname + "=+" + user.username + "@" + user.hostname)
+case class RPL_LUSERCLIENT() extends IrcServerResponse(251, "There are " + Server.users.size + " users and 0 invisible on 1 servers")
+case class RPL_LUSEROP() extends IrcServerResponse(252, "operator(s) online", "2")
+case class RPL_LUSERCHANNELS() extends IrcServerResponse(254, "channels formed", Server.channels.size.toString)
+case class RPL_LUSERME() extends IrcServerResponse(255, "I have " + Server.users.size + " clients and 0 servers")
+
+case class RPL_USERHOST(users : User*) extends IrcServerResponse(302, users.map(user => user.nickname + "=+" + user.username + "@" + user.hostname).mkString(" "))
 
 case class RPL_WHOISUSER(user : User) extends IrcServerResponse(311, user.realname, user.nickname, user.username, user.hostname, "*")
 case class RPL_WHOISSERVER(user : User) extends IrcServerResponse(312, IrcConstants.OUR_NAME, user.nickname, IrcConstants.OUR_HOST)
@@ -138,12 +157,14 @@ case class RPL_ENDOFNAMES(channel : Channel) extends IrcServerResponse(366, "End
 case class RPL_BANLIST(channel : Channel, mask : String) extends IrcServerResponse(367, mask, channel.name)
 case class RPL_ENDOFBANLIST(channel : Channel) extends IrcServerResponse(368, "End of channel ban list", channel.name)
 
-case class ERR_NOSUCHNICK(name : String) extends IrcServerResponse(401, "No such nick/channel")
+case class ERR_NOSUCHNICK(name : String) extends IrcServerResponse(401, "No such nick/channel", name)
 
 case class ERR_NOSUCHCHANNEL(name : String) extends IrcServerResponse(403, "No such channel", name)
 
-case class ERR_NONICKNAMEGIVEN() extends IrcServerResponse(431, "No nickname given")
+case class ERR_NOMOTD() extends IrcServerResponse(422, "MOTD File is missing")
 
+case class ERR_NONICKNAMEGIVEN() extends IrcServerResponse(431, "No nickname given")
+case class ERR_ERRONEUSNICKNAME(name : String) extends IrcServerResponse(432, "Erroneus nickname", name)
 case class ERR_NICKNAMEINUSE(name : String) extends IrcServerResponse(433, "Nickname is already in use", name)
 
 case class ERR_USERNOTINCHANNEL(channel : Channel, user : User) extends IrcServerResponse(441, "They aren't on that channel", user.nickname, channel.name)
@@ -158,7 +179,7 @@ case class ERR_INVITEONLYCHAN(channel : Channel) extends IrcServerResponse(473, 
 case class ERR_BANNEDFROMCHAN(channel : Channel) extends IrcServerResponse(474, "Cannot join channel (+b)", channel.name)
 case class ERR_BADCHANNELKEY(channel : Channel) extends IrcServerResponse(475, "Cannot join channel (+k)", channel.name)
 
-case class ERR_CHANOPRIVSNEEDED(channel : Channel) /* sic */ extends IrcServerResponse(482, "You're not channel operator", channel.name)
+case class ERR_CHANOPRIVSNEEDED(channel : Channel) extends IrcServerResponse(482, "You're not channel operator", channel.name)
 
 /** CLIENT **/
 abstract class IrcClientResponse(val source : User, val command : String, val params : String*) extends IrcResponse {

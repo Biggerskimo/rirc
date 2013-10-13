@@ -7,16 +7,20 @@ import org.yaml.snakeyaml.{DumperOptions, Yaml}
 import org.yaml.snakeyaml.constructor.Constructor
 import collection.immutable.HashMap
 import scala.collection.JavaConverters._
-import java.io.{FileReader, FileWriter}
+import java.io.{File, FileReader, FileWriter}
 import org.joda.time.DateTime
 import java.util.{List => JavaList}
 import java.util.{ArrayList => JavaArrayList}
+import java.util.{Map => JavaMap, HashMap => JavaHashMap}
+import de.abbaddie.rirc.BackupFileProvider
 
-class YamlFileChannelProvider extends DefaultRircModule with ChannelProvider {
+class YamlFileChannelProvider extends DefaultRircModule with ChannelProvider with BackupFileProvider {
 	val yaml = new Yaml(new Constructor(classOf[YamlChannel]))
 	var channels : Map[String, YamlChannel] = HashMap()
 	val dumperOptions = new DumperOptions
 	dumperOptions.setPrettyFlow(true)
+
+	def filename = "channels.yml"
 
 	def register(channel: Channel, owner: AuthAccount, oper : AuthAccount) {
 		synchronized {
@@ -32,7 +36,9 @@ class YamlFileChannelProvider extends DefaultRircModule with ChannelProvider {
 	def registeredChannels = channels
 
 	protected def load() {
-		yaml.loadAll(new FileReader("channels.yml")).asScala foreach {
+		val file = getFile()
+		if(!file.exists()) file.createNewFile()
+		yaml.loadAll(new FileReader(file)).asScala foreach {
 			case chan : YamlChannel =>
 				channels += (chan.name -> chan)
 			case _ =>
@@ -40,8 +46,8 @@ class YamlFileChannelProvider extends DefaultRircModule with ChannelProvider {
 	}
 
 	protected def save() {
-		val writer = new FileWriter("channels.yml")
-		val result = channels.values map(yaml.dumpAsMap(_)) mkString("---\n")
+		val writer = new FileWriter(getFile(write = true))
+		val result = channels.values.map(yaml.dumpAsMap(_)).mkString("---\n")
 		writer.write(result)
 		writer.close()
 	}
@@ -67,6 +73,11 @@ class YamlChannel extends ChannelDescriptor {
 	var voicesList : JavaList[String] = new JavaArrayList()
 	@BeanProperty
 	var banList : JavaList[YamlBan] = new JavaArrayList()
+	@BeanProperty
+	var additional : JavaMap[String, String] = new JavaHashMap()
+
+	def getAdditional(key : String) = if(additional.containsKey(key)) Some(additional.get(key)) else None
+	def setAdditional(key : String, value : String) = additional.put(key, value)
 
 	def ops : Seq[String] = opsList.asScala
 	def voices : Seq[String] = voicesList.asScala

@@ -19,6 +19,8 @@ class IrcLineDecoder extends OneToOneDecoder with Logging {
 				if(trailing != null) params :+= trailing
 
 				IrcIncomingLine(command.toUpperCase, params: _*)
+			case "" =>
+				null // empty lines are ok
 			case _ =>
 				error("invalid line received: '" + lineStr + "'")
 				null

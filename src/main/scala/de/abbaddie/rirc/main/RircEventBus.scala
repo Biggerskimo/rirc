@@ -18,7 +18,6 @@ class RircEventBus extends ActorEventBus with Logging {
 	val DUMMY = AnyRef
 	// used as a map containing sets
 	val subscriptions : concurrent.Map[RircEventClassifier, concurrent.Map[ActorRef, Any]] = concurrent.TrieMap()
-	val services : concurrent.Map[ActorRef, Any] = concurrent.TrieMap()
 
 	val important : concurrent.Map[ActorRef, Any] = concurrent.TrieMap()
 
@@ -29,10 +28,6 @@ class RircEventBus extends ActorEventBus with Logging {
 		val Some(set) = subscriptions get to
 
 		set.putIfAbsent(subscriber, DUMMY) == None
-	}
-
-	def subscribeService(subscriber: ActorRef): Boolean = {
-		services.putIfAbsent(subscriber, DUMMY) == None
 	}
 
 	def unsubscribe(subscriber: ActorRef, from: RircEventClassifier): Boolean = {
@@ -57,47 +52,45 @@ class RircEventBus extends ActorEventBus with Logging {
 
 		var actors: Set[ActorRef] = mutable.HashSet()
 
-		if(event.isInstanceOf[BroadcastMessage]) {
-			//actors += Server.actor
-			actors ++= subscriptions.values flatMap(map => map.keys)
-		}
-		else {
-			/*if(event.isInstanceOf[ServerMessage]) {
-				actors += Server.actor
-			}*/
-			if(event.isInstanceOf[ChannelMessage]) {
-				subscriptions get (ChannelClassifier(event.asInstanceOf[ChannelMessage].channel)) match {
-					case Some(actors2) => actors ++= actors2.keys
-					case _ =>
-				}
-			}
-
-			if(event.isInstanceOf[UserMessage]) {
-				subscriptions get (UserClassifier(event.asInstanceOf[UserMessage].user)) match {
+		if(event.isInstanceOf[ScopedBroadcastMessage]) {
+			val user = event.asInstanceOf[ScopedBroadcastMessage].user
+			Server.channels.values
+			.filter(_.users.contains(user))
+			.foreach { channel =>
+				subscriptions.get(ChannelClassifier(channel)) match {
 					case Some(actors2) => actors ++= actors2.keys
 					case _ =>
 				}
 			}
 		}
+		if(event.isInstanceOf[ChannelMessage]) {
+			subscriptions.get(ChannelClassifier(event.asInstanceOf[ChannelMessage].channel)) match {
+				case Some(actors2) => actors ++= actors2.keys
+				case _ =>
+			}
+		}
 
-		if(event.isInstanceOf[BroadcastMessage] || event.isInstanceOf[ServerMessage]) {
+		if(event.isInstanceOf[UserMessage]) {
+			subscriptions.get(UserClassifier(event.asInstanceOf[UserMessage].user)) match {
+				case Some(actors2) => actors ++= actors2.keys
+				case _ =>
+			}
+		}
+
+		if(event.isInstanceOf[ScopedBroadcastMessage] || event.isInstanceOf[ServerMessage]) {
 			Server.actor ! event
 		}
 
-		if(event.isInstanceOf[BroadcastMessage] || event.isInstanceOf[AuthMessage]) {
+		if(event.isInstanceOf[ScopedBroadcastMessage] || event.isInstanceOf[AuthMessage]) {
 			Server.authSys ! event
 		}
 
 		implicit val timeout = Timeout(1, TimeUnit.SECONDS)
 		implicit val actorSystem = Server.actorSystem.dispatcher
 
-		if(event.isInstanceOf[BroadcastMessage] || event.isInstanceOf[ServiceMessage]) {
-			services.keysIterator foreach (_ ? event)
-		}
+		val firstBatch = Future.sequence(actors.filter(important.contains).map(_ ? event))
 
-		val firstBatch = Future.sequence(actors filter(important.contains(_)) map (_ ? event))
-
-		firstBatch.onComplete(_ => actors filter(!important.contains(_)) foreach(_ ! event))
+		firstBatch.onComplete(_ => actors.filterNot(important.contains).foreach(_ ! event))
 	}
 
 	def !(event: Message) {

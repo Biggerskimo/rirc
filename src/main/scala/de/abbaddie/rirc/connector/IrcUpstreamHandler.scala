@@ -6,6 +6,8 @@ import org.joda.time.DateTime
 import de.abbaddie.rirc.main.{QuitMessage, Server}
 import grizzled.slf4j.Logging
 import de.abbaddie.jmunin.Munin
+import java.nio.channels.ClosedChannelException
+import java.io.IOException
 
 class IrcUpstreamHandler extends SimpleChannelUpstreamHandler with Logging {
 	var user : IrcUser = null
@@ -30,5 +32,14 @@ class IrcUpstreamHandler extends SimpleChannelUpstreamHandler with Logging {
 		user.us ! readLine
 		user.lastActivity = DateTime.now
 		user.deathMode = false
+	}
+
+	override def exceptionCaught(ctx: ChannelHandlerContext, e: ExceptionEvent) {
+		e.getCause match {
+			case ex : Exception =>
+				user.us ! IrcChannelError(ex.getLocalizedMessage)
+			case ex =>
+				super.exceptionCaught(ctx, e)
+		}
 	}
 }

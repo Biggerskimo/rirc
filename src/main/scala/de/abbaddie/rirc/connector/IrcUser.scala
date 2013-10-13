@@ -24,6 +24,7 @@ class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) exten
 	var pinger : ActorRef = null
 	var deathMode = false
 	var dies : DateTime = DateTime.now + 10.years
+	var isDead = false
 
 	override def isSystemUser = false
 
@@ -47,6 +48,12 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			user.ds ! RPL_YOURHOST()
 			user.ds ! RPL_CREATED()
 			user.ds ! RPL_MYINFO()
+			user.ds ! RPL_ISUPPORT()
+			user.ds ! RPL_LUSERCLIENT()
+			user.ds ! RPL_LUSEROP()
+			user.ds ! RPL_LUSERCHANNELS()
+			user.ds ! RPL_LUSERME()
+			user.ds ! ERR_NOMOTD()
 
 		case JoinMessage(channel, joiner) =>
 			Server.eventBus.subscribe(self, ChannelClassifier(channel))
@@ -81,16 +88,15 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 				Server.eventBus.unsubscribe(self, ChannelClassifier(channel))
 			user.ds ! MSG_PART(channel, sender, message)
 
+		case QuitMessage(sender, _) if sender == user =>
+			user.isDead = true
+			user.ds ! PoisonPill
+			user.us ! PoisonPill
+			user.pinger ! PoisonPill
+			Server.eventBus.unsubscribe(self)
+
 		case QuitMessage(sender, message) =>
-			// TODO check whether user is visible
-			if(sender == user) {
-				user.ds ! PoisonPill
-				user.us ! PoisonPill
-				user.pinger ! PoisonPill
-				Server.eventBus.unsubscribe(self)
-			}
-			else
-				user.ds ! MSG_QUIT(sender, message)
+			user.ds ! MSG_QUIT(sender, message)
 
 		case NickchangeMessage(sender, oldNick, newNick) =>
 			if(sender == user)
@@ -145,6 +151,8 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case UnbanMessage(channel, sender, mask) =>
 			user.ds ! MSG_MODE(channel, sender, "-b", mask)
 
+		case ServiceCommandMessage(_, _, _, ignore @ _*) =>
+
 		case InitDummy =>
 			user.ds = context.actorOf(Props(new IrcUserDownstreamActor(user, user.channel)), name = "ds")
 			user.us = context.actorOf(Props(new IrcUserUpstreamActor(user)), name = "us")
@@ -163,10 +171,25 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 	var nickSet = false
 	var loggedIn = false
 
-	def receive = {
+	def receive = receiveStart andThen receiveAux
+
+	def receiveAux : Receive = {
+		case IrcChannelError(msg) if user.isDead =>
+			Server.events ! QuitMessage(user, Some("Verbindungsfehler: " + msg))
+		case IrcChannelError(msg) =>
+			// ignore
+		case line : IrcIncomingLine =>
+			info("Dropped incoming line from " + user.nickname + ": " + line)
+		case _ =>
+			// ignore
+	}
+
+	def receiveStart : Receive = {
 		case IrcIncomingLine("NICK", nickname) =>
-			if(Server.users contains nickname)
+			if(Server.userNicks.contains(Server.nickToLowerCase(nickname)))
 				user.ds ! ERR_NICKNAMEINUSE(nickname)
+			else if(!Server.isValidNick(nickname))
+				user.ds ! ERR_ERRONEUSNICKNAME(nickname)
 			else {
 				user.nickname = nickname
 				nickSet = true
@@ -183,8 +206,8 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 
 	def checkRegistration() {
 		if(nickSet && loggedIn) {
-			Server.eventBus.publish(ConnectMessage(user))
-			context.become(receiveUsual)
+			Server.events ! ConnectMessage(user)
+			context.become(receiveUsual andThen receiveAux)
 		}
 	}
 
@@ -279,8 +302,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					Server.eventBus.publish(PublicTextMessage(channel, user, message))
 				case Some(to : User) =>
 					Server.eventBus.publish(PrivateTextMessage(user, to, message))
-				case _ =>
+				case _ if target.startsWith("#") =>
 					user.ds ! ERR_NOSUCHCHANNEL(target)
+				case _ =>
+					user.ds ! ERR_NOSUCHNICK(target)
 			}
 
 		case IrcIncomingLine("NOTICE", target, message) =>
@@ -308,8 +333,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 			Server.events ! QuitMessage(user, rest.headOption)
 
 		case IrcIncomingLine("NICK", newNick) =>
-			if(Server.users.contains(newNick))
+			if(Server.userNicks.contains(Server.nickToLowerCase(newNick)))
 				user.ds ! ERR_NICKNAMEINUSE(newNick)
+			else if(!Server.isValidNick(newNick))
+				user.ds ! ERR_ERRONEUSNICKNAME(newNick)
 			else {
 				val oldNick = user.nickname
 				Server.events ! NickchangeMessage(user, oldNick, newNick)
@@ -380,8 +407,8 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					user.ds ! ERR_NOSUCHNICK(uname)
 			}
 
-		case IrcIncomingLine("USERHOST", _) =>
-			user.ds ! RPL_USERHOST(user)
+		case IrcIncomingLine("USERHOST", names @ _*) =>
+			user.ds ! RPL_USERHOST(names.map(Server.users.get).filter(_.isDefined).map(_.get) :_*)
 
 		case IrcIncomingLine("PONG", sth @ _*) =>
 			info("received pong from " + user.nickname)
@@ -401,9 +428,6 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				case (None, _) =>
 					user.ds ! ERR_NOSUCHCHANNEL(cname)
 			}
-
-		case line : IrcIncomingLine =>
-			info("Dropped incoming line from " + user.nickname + ": " + line)
 	}
 
 	private def handleModeChange(channel : Channel, desc : String, rest : Seq[String]) {
@@ -461,13 +485,11 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 
 class IrcUserDownstreamActor(val user : IrcUser, val channel : NettyChannel) extends Actor with Logging {
 	def receive = {
+		case message : IrcResponse=>
+			channel.write(message.asInstanceOf[IrcResponse].toIrcOutgoingLine(user))
+			Munin.inc("irc-out")
 		case message =>
-			if(message.isInstanceOf[IrcResponse]) {
-				channel.write(message.asInstanceOf[IrcResponse].toIrcOutgoingLine(user))
-				Munin.inc("irc-out")
-			}
-			else
-				error("Dropped message in IrcUserDownStreamActor for " + user.nickname + ": " + message + ", sent by " + context.sender)
+			error("Dropped message in IrcUserDownStreamActor for " + user.nickname + ": " + message + ", sent by " + context.sender)
 	}
 
 	override def postStop() {

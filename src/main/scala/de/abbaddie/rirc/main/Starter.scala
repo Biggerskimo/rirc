@@ -37,6 +37,7 @@ object Starter {
 		val moduleList = moduleObjs.keySet().asScala.toList.map(x => config.getConfig("modules." + x))
 
 		// setup server object
+		Server.config = config
 		Server.actorSystem = ActorSystem("rirc-actors", config)
 		Server.actor = Server.actorSystem.actorOf(Props[ServerActor])
 		//Server.systemUser = new SystemUser

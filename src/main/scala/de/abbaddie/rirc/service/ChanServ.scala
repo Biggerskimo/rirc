@@ -27,7 +27,7 @@ class ChanServ extends DefaultRircModule with RircAddon {
 }
 
 class ChanServUser(config : Config) extends User {
-	def initActor(): ActorRef = Server.actorSystem.actorOf(Props(new ChanServActor(this)), name = "ChanServ")
+	def initActor(): ActorRef = Server.actorSystem.actorOf(Props(new ChanServGeneralActor(this)), name = "ChanServ")
 
 	val nickname = config.getString("nickname")
 	val username = config.getString("username")
@@ -35,17 +35,86 @@ class ChanServUser(config : Config) extends User {
 	val hostname = config.getString("hostname")
 }
 
-class ChanServActor(val suser : User) extends Actor with Logging {
+class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 	override def preStart() {
 		startup()
-		Server.events.subscribeService(self)
 	}
 
 	def receive = {
-		case AuthSuccess(user, acc) =>
-			Server.channels.values filter(_.users contains user) foreach(checkUser(_, user, Some(acc)))
+		case PrivateTextMessage(user, _, message) =>
+			if(user.authacc.isEmpty || !user.isOper) {
+				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Oper-Rechte benötigt.")
+			}
+			else {
+				message.split(" ") match {
+					case Array("join", name) if !name.startsWith("#") =>
+						Server.events ! PrivateNoticeMessage(suser, user, "Das ist kein gültiger Channel-Name!")
+					case Array("join", name) if !Server.channels.contains(name) =>
+						Server.events ! PrivateNoticeMessage(suser, user, "Der Channel existiert nicht!")
+					case Array("join", name) if Server.channels(name).users.contains(suser) =>
+						Server.events ! PrivateNoticeMessage(suser, user, "Schau doch mal auf die Userliste!")
+					case Array("join", name) =>
+						val channel = Server.channels(name)
+						join(channel)
+					case _ =>
+						Server.events ! PrivateNoticeMessage(suser, user, "Geh bügeln!")
+				}
+			}
 
-		case ServiceCommandMessage(channel, user, "register", ownerName) =>
+		case ConnectMessage(_) |
+			 JoinMessage(_, _) =>
+			// ignore
+
+		case message =>
+			error("Dropped message in ChanServGeneralActor: " + message + ", sent by " + context.sender)
+	}
+
+	def startup() {
+		var channelCount = 0
+
+		Server.channelProvider.registeredChannels.keys foreach { name =>
+			Server.channels get name match {
+				case Some(channel : Channel) if !channel.users.contains(suser) =>
+					join(channel)
+				case None =>
+					val channel = new Channel(name)
+					Server.events ! ChannelCreationMessage(channel, suser)
+					join(channel)
+			}
+			channelCount += 1
+		}
+
+		info(channelCount + " channels loaded.")
+	}
+
+	def join(channel : Channel) {
+		val actor = Server.actorSystem.actorOf(Props(new ChanServChannelActor(suser, channel)), name = "ChanServ" + channel.name.tail)
+
+		Server.events.subscribe(actor, ChannelClassifier(channel))
+
+		Server.events ! JoinMessage(channel, suser)
+	}
+}
+
+class ChanServChannelActor(val suser : User, val channel : Channel) extends Actor with Logging {
+	def receive = {
+		case AuthSuccess(user, acc) if channel.users contains user =>
+			checkUser(user, Some(acc))
+
+		case JoinMessage(_, user) if user == suser =>
+			resync()
+
+		case JoinMessage(_, user) =>
+			checkUser(user)
+
+		case PartMessage(_, user, _) if user == suser =>
+			Server.events.unsubscribe(self, ChannelClassifier(channel))
+			context.stop(self)
+
+		case KickMessage(_, _, user) if user == suser =>
+			Server.events ! JoinMessage(channel, user)
+
+		case ServiceCommandMessage(_, user, "register", ownerName) =>
 			if(user.authacc.isEmpty || !user.isOper)
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Oper-Rechte benötigt.")
 			else if(channel.isRegistered)
@@ -54,23 +123,22 @@ class ChanServActor(val suser : User) extends Actor with Logging {
 				resolveAccount(ownerName) match {
 					case Some(account) =>
 						Server.channelProvider.register(channel, account, user.authacc.get)
-						Server.events ! JoinMessage(channel, suser)
-						resync(channel)
+						resync()
 						Server.events ! PrivateNoticeMessage(suser, user, "Der Channel wurde registriert.")
 					case None =>
 						Server.events ! PrivateNoticeMessage(suser, user, "Der Account zu " + ownerName + " wurde nicht gefunden.")
 				}
 			}
 
-		case ServiceCommandMessage(channel, user, "resync") =>
-			if(!checkOp(channel, user))
+		case ServiceCommandMessage(_, user, "resync") =>
+			if(!checkOp(user))
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 			else {
-				resync(channel)
+				resync()
 				Server.events ! PrivateNoticeMessage(suser, user, "Der Privilegiencheck wurde ausgeführt.")
 			}
 
-		case ServiceCommandMessage(channel, user, "users") =>
+		case ServiceCommandMessage(_, user, "users") =>
 			Server.channelProvider.registeredChannels get channel.name match {
 				case Some(desc) =>
 					Server.events ! PrivateNoticeMessage(suser, user, "Owner: " + desc.owner)
@@ -80,25 +148,25 @@ class ChanServActor(val suser : User) extends Actor with Logging {
 					Server.events ! PrivateNoticeMessage(suser, user, "Der Channel ist nicht registriert!")
 			}
 
-		case ServiceCommandMessage(channel, user, "addop", name) =>
-			userChange(channel, user, name, desc => desc addOp _, "Der User wurde zur Op-Liste hinzugefügt.")
+		case ServiceCommandMessage(_, user, "addop", name) =>
+			userChange(user, name, desc => desc.addOp , "Der User wurde zur Op-Liste hinzugefügt.")
 
-		case ServiceCommandMessage(channel, user, "addvoice", name) =>
-			userChange(channel, user, name, desc => desc addVoice _, "Der User wurde zur Voice-Liste hinzugefügt.")
+		case ServiceCommandMessage(_, user, "addvoice", name) =>
+			userChange(user, name, desc => desc.addVoice, "Der User wurde zur Voice-Liste hinzugefügt.")
 
-		case ServiceCommandMessage(channel, user, "rmop", name) =>
-			userChange(channel, user, name, desc => desc rmOp _, "Der User wurde aus der Op-Liste entfernt.")
+		case ServiceCommandMessage(_, user, "rmop", name) =>
+			userChange(user, name, desc => desc.rmOp, "Der User wurde aus der Op-Liste entfernt.")
 
-		case ServiceCommandMessage(channel, user, "rmvoice", name) =>
-			userChange(channel, user, name, desc => desc rmVoice _, "Der User wurde aus der Voice-Liste entfernt.")
+		case ServiceCommandMessage(_, user, "rmvoice", name) =>
+			userChange(user, name, desc => desc.rmVoice, "Der User wurde aus der Voice-Liste entfernt.")
 
-		case ServiceCommandMessage(channel, user, "god") =>
+		case ServiceCommandMessage(_, user, "god") =>
 			Server.events ! PrivateNoticeMessage(suser, user, "God: " + IrcConstants.OWNER)
 
-		case ServiceCommandMessage(channel, user, "ping") =>
+		case ServiceCommandMessage(_, user, "ping") =>
 			Server.events ! PublicTextMessage(channel, suser, user.nickname + ": " + "Pong!")
 
-		case ServiceCommandMessage(channel, user, "8ball", rest @ _*) =>
+		case ServiceCommandMessage(_, user, "8ball", rest @ _*) =>
 			val msg = rest.flatMap(_.map(_.toInt)).sum % 4 match {
 				case 0 => "Not a chance."
 				case 1 => "In your dreams."
@@ -107,28 +175,64 @@ class ChanServActor(val suser : User) extends Actor with Logging {
 			}
 			Server.events ! PublicTextMessage(channel, suser, user.nickname + ": " + msg)
 
-		case JoinMessage(channel, user) =>
-			checkUser(channel, user)
+		case ServiceCommandMessage(_, user, "part") =>
+			if(user.authacc.isEmpty || !user.isOper)
+				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Oper-Rechte benötigt.")
+			else {
+				Server.events ! PartMessage(channel, user, None)
+			}
+
+		case ServiceCommandMessage(_, user, "set", "topicmask", rest @_*) =>
+			if(!checkOp(user))
+				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+			else {
+				Server.channelProvider.registeredChannels.get(channel.name) match {
+					case Some(desc) =>
+						desc.setAdditional("topicmask", rest.mkString(" "))
+					case None =>
+						Server.events ! PrivateNoticeMessage(suser, user, "Der Channel ist nicht registriert!")
+				}
+			}
+
+		case ServiceCommandMessage(_, user, "topic", rest @_*) =>
+			if(!checkOp(user))
+				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+			else {
+				val topicInner = rest.mkString(" ")
+				Server.channelProvider.registeredChannels.get(channel.name) match {
+					case Some(desc) if desc.getAdditional("topicmask").isDefined =>
+						val topicMask = desc.getAdditional("topicmask").get
+						val topic = topicMask.replace("*", topicInner)
+						Server.events ! TopicChangeMessage(channel, user, channel.topic, topic)
+					case Some(desc) =>
+						Server.events ! TopicChangeMessage(channel, user, channel.topic, topicInner)
+					case None =>
+						Server.events ! PrivateNoticeMessage(suser, user, "Der Channel ist nicht registriert!")
+				}
+			}
 
 		case ConnectMessage(_) |
 			 QuitMessage(_, _) |
 			 KickMessage(_, _, _) |
 			 BanMessage(_, _, _) |
-			 BanMessage(_, _, _) =>
-
+			 PartMessage(_, _, _) |
+			 NickchangeMessage(_, _, _) |
+			 PrivilegeChangeMessage(_, _, _, _, _) |
+			 PublicTextMessage(_, _, _) |
+			 TopicChangeMessage(_, _, _, _) =>
 
 		case message =>
-			error("Dropped message in ChanServUserActor: " + message + ", sent by " + context.sender)
+			error("Dropped message in ChanServChannelActor: " + message + ", sent by " + context.sender)
 	}
 
-	def userChange(channel : Channel, user : User, name : String, todo : ChannelDescriptor => (String => Unit), message : String) {
-		if(!checkOp(channel, user))
+	def userChange(user : User, name : String, todo : ChannelDescriptor => (String => Unit), message : String) {
+		if(!checkOp(user))
 			Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 		else {
 			(Server.channelProvider.registeredChannels get channel.name, resolveAccount(name)) match {
 				case (Some(desc), Some(account)) =>
 					todo(desc)(account.id)
-					checkUser(channel, user)
+					checkUser(user)
 					Server.events ! PrivateNoticeMessage(suser, user, message)
 				case (Some(desc), None) =>
 					Server.events ! PrivateNoticeMessage(suser, user, "Der Account zu " + name + " wurde nicht gefunden.")
@@ -158,28 +262,9 @@ class ChanServActor(val suser : User) extends Actor with Logging {
 		}
 	}
 
-	def checkOp(channel : Channel, user : User) = UserUtil.checkOp(channel, user)
+	def checkOp(user : User) = UserUtil.checkOp(channel, user)
 
-	def startup() {
-		var channelCount = 0
-
-		Server.channelProvider.registeredChannels.keys foreach { name =>
-			Server.channels get name match {
-				case Some(channel : Channel) if !channel.users.contains(suser) =>
-					Server.events ! JoinMessage(channel, suser)
-					channelCount += 1
-				case None =>
-					val channel = new Channel(name)
-					Server.events ! ChannelCreationMessage(channel, suser)
-					Server.events ! JoinMessage(channel, suser)
-					channelCount += 1
-			}
-		}
-
-		info(channelCount + " channels loaded.")
-	}
-
-	def resync(channel : Channel) {
+	def resync() {
 		if(channel.isRegistered) {
 			implicit val desc = Server.channelProvider.registeredChannels(channel.name)
 
@@ -189,63 +274,66 @@ class ChanServActor(val suser : User) extends Actor with Logging {
 			}
 
 			// iterate users
-			channel.users foreach {case (user, info) => checkUserPart(channel, user, info) }
+			channel.users foreach {case (user, info) => checkUserPart(user, info) }
+		}
+		if(!channel.users.contains(suser) || !channel.users(suser).isOp) {
+			Server.events ! PrivilegeChangeMessage(channel, suser, suser, OP, SET)
 		}
 	}
 
-	def setNone(channel : Channel, user : User, info : ChannelUserInformation) {
+	def setNone(user : User, info : ChannelUserInformation) {
 		if(info.isOp)
 			Server.events ! PrivilegeChangeMessage(channel, suser, user, OP, UNSET)
 		if(info.isVoice)
 			Server.events ! PrivilegeChangeMessage(channel, suser, user, VOICE, UNSET)
 	}
-	def setVoice(channel : Channel, user : User, info : ChannelUserInformation) {
+	def setVoice(user : User, info : ChannelUserInformation) {
 		if(info.isOp)
 			Server.events ! PrivilegeChangeMessage(channel, suser, user, OP, UNSET)
 		if(!info.isVoice)
 			Server.events ! PrivilegeChangeMessage(channel, suser, user, VOICE, SET)
 	}
-	def setOp(channel : Channel, user : User, info : ChannelUserInformation) {
+	def setOp(user : User, info : ChannelUserInformation) {
 		if(!info.isOp)
 			Server.events ! PrivilegeChangeMessage(channel, suser, user, OP, SET)
 		if(info.isVoice)
 			Server.events ! PrivilegeChangeMessage(channel, suser, user, VOICE, UNSET)
 	}
 
-	def checkUser(channel : Channel, user : User) {
+	def checkUser(user : User) {
 		Server.channelProvider.registeredChannels get channel.name match {
 			case Some(desc) =>
-				checkUserPart(channel, user, channel.users(user))(desc)
+				checkUserPart(user, channel.users(user))(desc)
 			case _ =>
 		}
 	}
 
-	def checkUser(channel : Channel, user : User, acc : Option[AuthAccount]) {
+	def checkUser(user : User, acc : Option[AuthAccount]) {
 		Server.channelProvider.registeredChannels get channel.name match {
 			case Some(desc) =>
-				checkUserPart(channel, user, acc, channel.users(user))(desc)
+				checkUserPart(user, acc, channel.users(user))(desc)
 			case _ =>
 		}
 	}
 
-	def checkUserPart(channel : Channel, user2 : User, info2 : ChannelUserInformation)(implicit desc : ChannelDescriptor) {
-		checkUserPart(channel, user2, user2.authacc, info2)(desc)
+	def checkUserPart(user2 : User, info2 : ChannelUserInformation)(implicit desc : ChannelDescriptor) {
+		checkUserPart(user2, user2.authacc, info2)(desc)
 	}
 
-	def checkUserPart(channel : Channel, user2 : User, acc : Option[AuthAccount], info2 : ChannelUserInformation)(implicit desc : ChannelDescriptor) {
+	def checkUserPart(user2 : User, acc : Option[AuthAccount], info2 : ChannelUserInformation)(implicit desc : ChannelDescriptor) {
 		(user2, info2) match {
 			case (user, info) if user == suser =>
-				setOp(channel, user, info)
+				setOp(user, info)
 			case (user, info) if acc.isEmpty =>
-				setNone(channel, user, info)
+				setNone(user, info)
 			case (user, info) if desc.owner == acc.get.id =>
-				setOp(channel, user, info)
+				setOp(user, info)
 			case (user, info) if desc.ops contains acc.get.id =>
-				setOp(channel, user, info)
+				setOp(user, info)
 			case (user, info) if desc.voices contains acc.get.id =>
-				setVoice(channel, user, info)
+				setVoice(user, info)
 			case (user, info) =>
-				setNone(channel, user, info)
+				setNone(user, info)
 		}
 	}
 }

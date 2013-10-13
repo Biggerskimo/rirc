@@ -10,3 +10,5 @@ project/target/*
 .project
 doc
 channels.yml
+accounts.yml
+build

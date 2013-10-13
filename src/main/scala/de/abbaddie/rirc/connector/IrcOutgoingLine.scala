@@ -4,6 +4,10 @@ class IrcOutgoingLine(val source : Option[String], val command : String, val col
 	def this(source : Option[String], command : String, params : String*) = this(source, command, 1, params: _*)
 
 	override def toString = {
+		toString(withNl = true)
+	}
+
+	def toString(withNl : Boolean) = {
 		val str = new StringBuilder
 
 		source match {
@@ -23,7 +27,8 @@ class IrcOutgoingLine(val source : Option[String], val command : String, val col
 		else
 			str ++= " " + params.mkString(" ")
 
-		str += '\n'
+		if(withNl) str ++= "\r\n"
+
 		str.toString()
 	}
 }

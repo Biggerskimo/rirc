@@ -18,6 +18,9 @@ trait ChannelDescriptor {
 	def registration : DateTime
 	def bans : Seq[ChannelBan]
 
+	def getAdditional(key : String) : Option[String]
+	def setAdditional(key : String, value : String)
+
 	def setOwner(owner : String)
 	def addOp(op : String)
 	def addVoice(voice : String)

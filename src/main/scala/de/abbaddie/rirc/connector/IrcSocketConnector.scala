@@ -19,13 +19,14 @@ class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 
 		IrcConstants.config = config
 
-		val bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool, Executors.newCachedThreadPool))
+		val bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool, Executors.newCachedThreadPool, Runtime.getRuntime.availableProcessors * 4))
 		bootstrap.setPipelineFactory(new ChannelPipelineFactory {
 			def getPipeline: ChannelPipeline = {
 				Channels.pipeline(
 					new DelimiterBasedFrameDecoder(MAX_LINE_LEN, '\n', '\r', "\r\n"),
 					new IrcLineDecoder(),
 					new IrcLineEncoder(),
+					new IrcLogger(),
 					new IrcUpstreamHandler()
 				)
 			}
