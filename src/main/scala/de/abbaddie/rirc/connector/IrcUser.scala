@@ -12,7 +12,7 @@ import collection.mutable
 import java.net.InetSocketAddress
 import org.joda.time.DateTime
 import org.scala_tools.time.Imports._
-import de.abbaddie.jmunin.Munin
+import de.abbaddie.rirc.Munin
 import scala.Some
 import de.abbaddie.rirc.main._
 
@@ -22,7 +22,7 @@ class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) exten
 	var ds : ActorRef = null
 	var us : ActorRef = null
 	var pinger : ActorRef = null
-	var deathMode = false
+	var dying = false
 	var dies : DateTime = DateTime.now + 10.years
 	var isDead = false
 
@@ -171,10 +171,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 	var nickSet = false
 	var loggedIn = false
 
-	def receive = receiveStart andThen receiveAux
+	def receive = receiveStart orElse receiveAux
 
 	def receiveAux : Receive = {
-		case IrcChannelError(msg) if user.isDead =>
+		case IrcChannelError(msg) if !user.isDead =>
 			Server.events ! QuitMessage(user, Some("Verbindungsfehler: " + msg))
 		case IrcChannelError(msg) =>
 			// ignore
@@ -207,7 +207,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 	def checkRegistration() {
 		if(nickSet && loggedIn) {
 			Server.events ! ConnectMessage(user)
-			context.become(receiveUsual andThen receiveAux)
+			context.become(receiveUsual orElse receiveAux)
 		}
 	}
 
@@ -434,7 +434,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 		val queue = mutable.Queue() ++ rest
 		desc.head match {
 			case '+' =>
-				desc.tail foreach{ char => char match {
+				desc.tail foreach {
 					case 'o' | 'v' | 'b' if queue.isEmpty =>
 						user.ds ! ERR_NONICKNAMEGIVEN()
 					case 'k' | 'b' if queue.isEmpty =>
@@ -449,9 +449,9 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 						Server.events ! ChannelModeChangeMessage(channel, user, PROTECTION(Some(queue.dequeue())))
 					case 'b' =>
 						Server.events ! BanMessage(channel, user, UserUtil.cleanMask(queue.dequeue()))
-				}}
+				}
 			case '-' =>
-				desc.tail foreach{ char => char match {
+				desc.tail foreach {
 					case 'o' | 'v' if queue.isEmpty =>
 						user.ds ! ERR_NONICKNAMEGIVEN()
 					case 'b' if queue.isEmpty =>
@@ -467,7 +467,6 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					case 'b' =>
 						Server.events ! UnbanMessage(channel, user, UserUtil.cleanMask(queue.dequeue()))
 				}
-			}
 		}
 	}
 
@@ -499,14 +498,14 @@ class IrcUserDownstreamActor(val user : IrcUser, val channel : NettyChannel) ext
 
 class IrcUserPingActor(val user : IrcUser) extends Actor with Logging {
 	def receive = {
-		case Tick if user.deathMode && user.dies < DateTime.now =>
+		case Tick if user.dying && user.dies < DateTime.now =>
 			Server.events ! QuitMessage(user, Some("Ping timeout"))
 			info("killed " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
-		case Tick if user.deathMode =>
+		case Tick if user.dying =>
 			// wait ...
 		case Tick if user.lastActivity < DateTime.now - IrcConstants.TIMEOUT.toMillis =>
 			user.dies = DateTime.now + IrcConstants.TIMEOUT.toMillis
-			user.deathMode = true
+			user.dying = true
 			user.ds ! CMD_PING()
 			info("pinged " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
 	}

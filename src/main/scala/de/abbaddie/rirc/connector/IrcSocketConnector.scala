@@ -10,7 +10,7 @@ import IrcConstants._
 import org.jboss.netty.buffer.{ChannelBuffers, ChannelBuffer}
 import java.net.InetSocketAddress
 import de.abbaddie.rirc.main.{DefaultRircModule, Server}
-import de.abbaddie.jmunin.Munin
+import de.abbaddie.rirc.Munin
 
 class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 	def start() {

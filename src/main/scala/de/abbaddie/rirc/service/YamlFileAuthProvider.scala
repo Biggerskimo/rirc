@@ -10,14 +10,17 @@ import java.io.{FileWriter, FileReader}
 import scala.collection.JavaConverters._
 import collection.immutable.HashMap
 import org.mindrot.jbcrypt.BCrypt
+import de.abbaddie.rirc.BackupFileProvider
 
-class YamlFileAuthProvider extends DefaultRircModule with AuthProvider {
+class YamlFileAuthProvider extends DefaultRircModule with AuthProvider with BackupFileProvider {
 	val yaml = new Yaml(new Constructor(classOf[YamlAuthAccount]))
 	var accounts : Map[String, YamlAuthAccount] = HashMap()
 	val dumperOptions = new DumperOptions
 	dumperOptions.setPrettyFlow(true)
 
 	def init() {}
+
+	def filename = "accounts.yml"
 
 	def register(name: String, password: String, mail: String): Future[_] = {
 		accounts get name match {
@@ -54,7 +57,7 @@ class YamlFileAuthProvider extends DefaultRircModule with AuthProvider {
 	}
 
 	protected def load() {
-		yaml.loadAll(new FileReader("accounts.yml")).asScala foreach {
+		yaml.loadAll(new FileReader(getFile())).asScala foreach {
 			case acc : YamlAuthAccount =>
 				accounts += (acc.name -> acc)
 			case _ =>
@@ -62,7 +65,7 @@ class YamlFileAuthProvider extends DefaultRircModule with AuthProvider {
 	}
 
 	protected def save() {
-		val writer = new FileWriter("accounts.yml")
+		val writer = new FileWriter(getFile(write = true))
 		val result = accounts.values map(yaml.dumpAsMap(_)) mkString("---\n")
 		writer.write(result)
 		writer.close()

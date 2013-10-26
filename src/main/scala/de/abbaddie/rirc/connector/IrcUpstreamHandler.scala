@@ -5,7 +5,7 @@ import java.net.InetSocketAddress
 import org.joda.time.DateTime
 import de.abbaddie.rirc.main.{QuitMessage, Server}
 import grizzled.slf4j.Logging
-import de.abbaddie.jmunin.Munin
+import de.abbaddie.rirc.Munin
 import java.nio.channels.ClosedChannelException
 import java.io.IOException
 
@@ -13,10 +13,11 @@ class IrcUpstreamHandler extends SimpleChannelUpstreamHandler with Logging {
 	var user : IrcUser = null
 
 	override def channelDisconnected(ctx : ChannelHandlerContext, e : ChannelStateEvent) {
-		Server.events ! QuitMessage(user, Some("Client disconnected"))
+		user.us ! IrcChannelError("Channel disconnected")
 	}
 
 	override def channelClosed(ctx : ChannelHandlerContext, e : ChannelStateEvent) {
+		user.us ! IrcChannelError("Channel closed")
 		info("channel to " + user.extendedString + " closed")
 	}
 
@@ -31,7 +32,7 @@ class IrcUpstreamHandler extends SimpleChannelUpstreamHandler with Logging {
 
 		user.us ! readLine
 		user.lastActivity = DateTime.now
-		user.deathMode = false
+		user.dying = false
 	}
 
 	override def exceptionCaught(ctx: ChannelHandlerContext, e: ExceptionEvent) {

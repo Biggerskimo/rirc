@@ -67,5 +67,6 @@ class ServerActor extends Actor with Logging {
 			userNicks += nickToLowerCase(newNick)
 			users -= oldNick
 			userNicks -= nickToLowerCase(oldNick)
+
 	}
 }

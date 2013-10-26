@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 import akka.pattern.ask
 import scala.concurrent.Future
 import grizzled.slf4j.Logging
-import de.abbaddie.jmunin.Munin
+import de.abbaddie.rirc.Munin
 
 class RircEventBus extends ActorEventBus with Logging {
 	type Event = Message
@@ -20,6 +20,7 @@ class RircEventBus extends ActorEventBus with Logging {
 	val subscriptions : concurrent.Map[RircEventClassifier, concurrent.Map[ActorRef, Any]] = concurrent.TrieMap()
 
 	val important : concurrent.Map[ActorRef, Any] = concurrent.TrieMap()
+	val serverSubscriptions : concurrent.Map[ActorRef, Any] = concurrent.TrieMap()
 
 	def subscribe(subscriber: ActorRef, to: RircEventClassifier): Boolean = {
 		if(!subscriptions.contains(to)) {
@@ -45,6 +46,14 @@ class RircEventBus extends ActorEventBus with Logging {
 
 	def unsubscribe(subscriber: ActorRef) {
 		subscriptions.keysIterator foreach(unsubscribe(subscriber, _))
+	}
+
+	def subscribeServer(subscriber: ActorRef) {
+		serverSubscriptions += (subscriber -> DUMMY)
+	}
+
+	def unsubscribeServer(subscriber: ActorRef) {
+		serverSubscriptions -= subscriber
 	}
 
 	def publish(event: Message) {
@@ -78,7 +87,7 @@ class RircEventBus extends ActorEventBus with Logging {
 		}
 
 		if(event.isInstanceOf[ScopedBroadcastMessage] || event.isInstanceOf[ServerMessage]) {
-			Server.actor ! event
+			serverSubscriptions.keys.foreach(_ ! event)
 		}
 
 		if(event.isInstanceOf[ScopedBroadcastMessage] || event.isInstanceOf[AuthMessage]) {

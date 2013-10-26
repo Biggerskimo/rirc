@@ -5,7 +5,7 @@ import de.abbaddie.rirc.connector.Connector
 import de.abbaddie.rirc.service._
 import com.typesafe.config.{ConfigObject, Config, ConfigFactory}
 import grizzled.slf4j.Logger
-import de.abbaddie.jmunin.Munin
+import de.abbaddie.rirc.Munin
 import scala.collection.JavaConverters._
 import collection.immutable.HashSet
 
@@ -29,6 +29,7 @@ object Starter {
 
 		// setup munin
 		Munin("connected", Server.users.size)("title" -> "Verbundene Nutzer", "vlabel" -> "Nutzer")()
+		Munin("channels", Server.channels.size)("title" -> "Channels", "vlabel" -> "channels")()
 		Munin("events")("title" -> "Globale Events", "vlabel" -> "Events")("type" -> "DERIVE", "min" -> 0)
 
 		// load config
@@ -40,6 +41,7 @@ object Starter {
 		Server.config = config
 		Server.actorSystem = ActorSystem("rirc-actors", config)
 		Server.actor = Server.actorSystem.actorOf(Props[ServerActor])
+		Server.events.subscribeServer(Server.actor)
 		//Server.systemUser = new SystemUser
 		Server.reservedNicks = HashSet(moduleList.filter(_.hasPath("reserved-nicks")).flatMap(_.getStringList("reserved-nicks").asScala) :_*)
 		logger.info("Server: Reserved nicks are " + Server.reservedNicks.mkString("['", "', '", "']"))

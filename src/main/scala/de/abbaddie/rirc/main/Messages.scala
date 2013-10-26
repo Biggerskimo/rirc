@@ -83,7 +83,7 @@ case class PublicNoticeMessage(channel : Channel, user : User, text : String) ex
 
 case class PublicTextMessage(channel : Channel, user : User, text : String) extends Message with ChannelMessage
 
-case class QuitMessage(user : User, message : Option[String]) extends Message with ScopedBroadcastMessage
+case class QuitMessage(user : User, message : Option[String]) extends Message with ScopedBroadcastMessage with ServerMessage
 
 case class RegistrationStart(user : User, name : String, password : String, emailAddress : String) extends Message with AuthMessage
 

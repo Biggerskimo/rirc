@@ -1,0 +1,6 @@
+if [ ! -f application.conf ]
+then
+	echo "application.conf does not exist; probably you have to copy application.conf.default and edit for your needs"
+	exit 0
+fi
+java -cp "lib/*:plugin/*:rirc.jar" -Dconfig.file=application.conf de.abbaddie.rirc.main.Starter
