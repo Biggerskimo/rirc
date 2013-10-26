@@ -329,15 +329,17 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					// ignore
 			}
 
-		case IrcIncomingLine("PART", name, rest @_*)  =>
-			Server.channels get name match {
-				case Some(channel) =>
-					if(!channel.users.contains(user))
-						user.ds ! ERR_NOTONCHANNEL(channel)
-					else
-						Server.eventBus.publish(PartMessage(channel, user, rest.headOption))
-				case None =>
-					user.ds ! ERR_NOSUCHCHANNEL(name)
+		case IrcIncomingLine("PART", names, rest @_*)  =>
+			names.split(",").foreach { case name =>
+				Server.channels get name match {
+					case Some(channel) =>
+						if(!channel.users.contains(user))
+							user.ds ! ERR_NOTONCHANNEL(channel)
+						else
+							Server.eventBus.publish(PartMessage(channel, user, rest.headOption))
+					case None =>
+						user.ds ! ERR_NOSUCHCHANNEL(name)
+				}
 			}
 
 		case IrcIncomingLine("QUIT", rest @_*)  =>
