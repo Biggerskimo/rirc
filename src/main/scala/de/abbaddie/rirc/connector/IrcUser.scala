@@ -223,32 +223,35 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				user.ds ! RPL_WHOREPLY(user)
 			user.ds ! RPL_ENDOFWHO()
 
-		case IrcIncomingLine("JOIN", name, extra @ _*) =>
-			val passwd = extra.headOption
-			if(!name.startsWith("#"))
-				user.ds ! ERR_NOSUCHCHANNEL(name)
-			else {
-				var channel : Channel = null
+		case IrcIncomingLine("JOIN", names, extra @ _*) =>
+			val passwds = extra.headOption.getOrElse("")
 
-				Server.channels get name match {
-					case Some(channel2) =>
-						channel = channel2
-					case None =>
-						channel = new Channel(name)
-						Server.eventBus.publish(ChannelCreationMessage(channel, user))
-				}
-
-				if(!UserUtil.checkInviteOnly(channel, user)) {
-					user.ds ! ERR_INVITEONLYCHAN(channel)
-				}
-				else if(!UserUtil.checkPasswordProtection(channel, user, passwd)) {
-					user.ds ! ERR_BADCHANNELKEY(channel)
-				}
-				else if(!UserUtil.checkBanned(channel, user)) {
-					user.ds ! ERR_BANNEDFROMCHAN(channel)
-				}
+			names.split(",").zipAll(passwds.split(",").map(Some(_)), "", None).foreach { case(name, passwd) =>
+				if(!name.startsWith("#"))
+					user.ds ! ERR_NOSUCHCHANNEL(name)
 				else {
-					Server.events ! JoinMessage(channel, user)
+					var channel : Channel = null
+
+					Server.channels get name match {
+						case Some(channel2) =>
+							channel = channel2
+						case None =>
+							channel = new Channel(name)
+							Server.eventBus.publish(ChannelCreationMessage(channel, user))
+					}
+
+					if(!UserUtil.checkInviteOnly(channel, user)) {
+						user.ds ! ERR_INVITEONLYCHAN(channel)
+					}
+					else if(!UserUtil.checkPasswordProtection(channel, user, passwd)) {
+						user.ds ! ERR_BADCHANNELKEY(channel)
+					}
+					else if(!UserUtil.checkBanned(channel, user)) {
+						user.ds ! ERR_BANNEDFROMCHAN(channel)
+					}
+					else {
+						Server.events ! JoinMessage(channel, user)
+					}
 				}
 			}
 
