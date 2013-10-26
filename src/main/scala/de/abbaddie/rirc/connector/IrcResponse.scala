@@ -155,7 +155,8 @@ case class RPL_NAMEREPLY(channel : Channel) extends IrcResponse { // 353
 	}
 }
 
-case class RPL_ENDOFNAMES(channel : Channel) extends IrcServerResponse(366, "End of /NAMES list", channel.name)
+case class RPL_ENDOFNAMES(name : String) extends IrcServerResponse(366, "End of /NAMES list", name)
+object RPL_ENDOFNAMES { def apply(channel : Channel) = new RPL_ENDOFNAMES(channel.name)}
 case class RPL_BANLIST(channel : Channel, mask : String) extends IrcServerResponse(367, mask, channel.name)
 case class RPL_ENDOFBANLIST(channel : Channel) extends IrcServerResponse(368, "End of channel ban list", channel.name)
 
@@ -181,6 +182,7 @@ case class ERR_INVITEONLYCHAN(channel : Channel) extends IrcServerResponse(473, 
 case class ERR_BANNEDFROMCHAN(channel : Channel) extends IrcServerResponse(474, "Cannot join channel (+b)", channel.name)
 case class ERR_BADCHANNELKEY(channel : Channel) extends IrcServerResponse(475, "Cannot join channel (+k)", channel.name)
 
+case class ERR_NOPRIVILEGES() extends IrcServerResponse(481, "Permission Denied- You're not an IRC operator")
 case class ERR_CHANOPRIVSNEEDED(channel : Channel) extends IrcServerResponse(482, "You're not channel operator", channel.name)
 
 case class ERR_UMODEUNKNOWNFLAG() extends IrcServerResponse(501, "Unknown MODE flag")

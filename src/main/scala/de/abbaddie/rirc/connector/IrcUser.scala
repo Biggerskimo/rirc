@@ -441,6 +441,24 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				case (None, _) =>
 					user.ds ! ERR_NOSUCHCHANNEL(cname)
 			}
+
+		case IrcIncomingLine("NAMES") =>
+			user.ds ! RPL_ENDOFNAMES("*")
+
+		case IrcIncomingLine("NAMES", "*") =>
+			user.ds ! RPL_ENDOFNAMES("*")
+
+		case IrcIncomingLine("NAMES", channels) if channels.contains(",") =>
+			user.ds ! ERR_NOPRIVILEGES()
+
+		case IrcIncomingLine("NAMES", name) =>
+			Server.channels get name match {
+				case Some(channel) =>
+					user.ds ! RPL_NAMEREPLY(channel)
+					user.ds ! RPL_ENDOFNAMES(channel)
+				case None =>
+					user.ds ! RPL_ENDOFNAMES(name)
+			}
 	}
 
 	private def handleModeChange(channel : Channel, desc : String, rest : Seq[String]) {
