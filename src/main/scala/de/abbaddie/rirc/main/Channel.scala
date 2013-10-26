@@ -1,6 +1,6 @@
 package de.abbaddie.rirc.main
 
-import akka.actor.{Props, Actor}
+import akka.actor.{PoisonPill, Props, Actor}
 import collection.immutable.{HashSet, HashMap}
 import org.joda.time.DateTime
 import grizzled.slf4j.Logging
@@ -79,6 +79,11 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 
 		case UnbanMessage(_, _, mask) =>
 			channel.bans = channel.bans filter(_ != mask)
+			sender ! null
+
+		case ChannelCloseMessage(_) =>
+			Server.events.clear(ChannelClassifier(channel))
+			self ! PoisonPill
 			sender ! null
 
 		case ChannelCloseMessage(_) |

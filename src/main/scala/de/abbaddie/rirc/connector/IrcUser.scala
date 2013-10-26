@@ -153,6 +153,8 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 
 		case ServiceCommandMessage(_, _, _, ignore @ _*) =>
 
+		case ChannelCloseMessage(_) =>
+
 		case InitDummy =>
 			user.ds = context.actorOf(Props(new IrcUserDownstreamActor(user, user.channel)), name = "ds")
 			user.us = context.actorOf(Props(new IrcUserUpstreamActor(user)), name = "us")
@@ -515,7 +517,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 
 class IrcUserDownstreamActor(val user : IrcUser, val channel : NettyChannel) extends Actor with Logging {
 	def receive = {
-		case message : IrcResponse=>
+		case message : IrcResponse =>
 			channel.write(message.asInstanceOf[IrcResponse].toIrcOutgoingLine(user))
 			Munin.inc("irc-out")
 		case message =>

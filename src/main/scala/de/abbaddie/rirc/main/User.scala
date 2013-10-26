@@ -33,8 +33,8 @@ abstract class User extends GenericTarget {
 
 	Server.eventBus.subscribe(actor, UserClassifier(this))
 
-	def fullString = nickname + "!" + username + "@" + hostname
-	def extendedString = nickname + "!" + username + "@" + hostname + "#" + uid
+	def fullString = nickname + "!~" + username + "@" + hostname
+	def extendedString = fullString + "#" + uid
 
 	var lastActivity : DateTime = DateTime.now
 }

@@ -194,7 +194,7 @@ abstract class IrcClientResponse(val source : User, val command : String, val pa
 		new IrcOutgoingLine(Some(userSourceString(source)), command, params : _*)
 	}
 
-	val userSourceString = (user : User) => user.nickname + "!" + user.username + "@" + user.hostname
+	val userSourceString = (user : User) => user.fullString
 }
 
 case class MSG_JOIN(channel : Channel, user : User) extends IrcClientResponse(user, "JOIN", channel.name)
@@ -214,7 +214,7 @@ case class MSG_PART(channel : Channel, user : User, message : Option[String]) ex
 case class MSG_QUIT(user : User, message : Option[String]) extends IrcClientResponse(user, "QUIT", message.toSeq :_*)
 
 case class MSG_NICK(user : User, oldNick : String, newNick : String) extends IrcClientResponse(user, "NICK", newNick) {
-	override val userSourceString = (user : User) => oldNick + "!" + user.username + "@" + user.hostname
+	override val userSourceString = (user : User) => oldNick + "!~" + user.username + "@" + user.hostname
 }
 
 case class MSG_TOPIC(channel : Channel, user : User, topic : String) extends IrcClientResponse(user, "TOPIC", channel.name, topic)

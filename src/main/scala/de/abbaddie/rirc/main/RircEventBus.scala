@@ -56,6 +56,10 @@ class RircEventBus extends ActorEventBus with Logging {
 		serverSubscriptions -= subscriber
 	}
 
+	def clear(from: RircEventClassifier) {
+		subscriptions.remove(from)
+	}
+
 	def publish(event: Message) {
 		Munin.inc("events")
 
