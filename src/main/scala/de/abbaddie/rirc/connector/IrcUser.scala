@@ -256,10 +256,14 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 			}
 
 		case IrcIncomingLine("MODE", name) =>
-			Server.channels get name match {
-				case Some(channel) =>
+			Server.targets get name match {
+				case Some(channel : Channel) =>
 					user.ds ! RPL_CHANNELMODEIS(channel)
 					user.ds ! RPL_CREATIONTIME(channel)
+				case Some(user2 : User) if user != user2 =>
+					user.ds ! ERR_USERSDONTMATCH()
+				case Some(user2 : User) =>
+					user.ds ! RPL_UMODEIS("i")
 				case None =>
 					user.ds ! ERR_NOSUCHCHANNEL(name)
 			}
@@ -276,15 +280,19 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 			}
 
 		case IrcIncomingLine("MODE", name, desc, rest @_*) =>
-			Server.channels get name match {
-				case Some(channel) if !channel.users.contains(user) =>
+			Server.targets get name match {
+				case Some(channel : Channel) if !channel.users.contains(user) =>
 					user.ds ! ERR_NOTONCHANNEL(channel)
-				case Some(channel) if !channel.users(user).isOp =>
+				case Some(channel : Channel) if !channel.users(user).isOp =>
 					user.ds ! ERR_CHANOPRIVSNEEDED(channel)
-				case Some(channel) =>
+				case Some(channel : Channel) =>
 					handleModeChange(channel, desc, rest)
+				case Some(user2 : User) if user != user2 =>
+					user.ds ! ERR_USERSDONTMATCH()
+				case Some(user2 : User) =>
+					user.ds ! ERR_UMODEUNKNOWNFLAG()
 				case None =>
-					user.ds ! ERR_NOSUCHCHANNEL
+					user.ds ! ERR_NOSUCHCHANNEL(name)
 			}
 
 		case IrcIncomingLine("PRIVMSG", target, message) if message startsWith "!" =>

@@ -53,6 +53,8 @@ case class RPL_ISUPPORT() extends IrcServerResponse(5, "are supported by this se
 	"NICKLEN=24" // TODO
 )
 
+case class RPL_UMODEIS(modes : String) extends IrcServerResponse(221, "+" + modes)
+
 case class RPL_LUSERCLIENT() extends IrcServerResponse(251, "There are " + Server.users.size + " users and 0 invisible on 1 servers")
 case class RPL_LUSEROP() extends IrcServerResponse(252, "operator(s) online", "2")
 case class RPL_LUSERCHANNELS() extends IrcServerResponse(254, "channels formed", Server.channels.size.toString)
@@ -180,6 +182,9 @@ case class ERR_BANNEDFROMCHAN(channel : Channel) extends IrcServerResponse(474, 
 case class ERR_BADCHANNELKEY(channel : Channel) extends IrcServerResponse(475, "Cannot join channel (+k)", channel.name)
 
 case class ERR_CHANOPRIVSNEEDED(channel : Channel) extends IrcServerResponse(482, "You're not channel operator", channel.name)
+
+case class ERR_UMODEUNKNOWNFLAG() extends IrcServerResponse(501, "Unknown MODE flag")
+case class ERR_USERSDONTMATCH() extends IrcServerResponse(502, "Cant change mode for other users")
 
 /** CLIENT **/
 abstract class IrcClientResponse(val source : User, val command : String, val params : String*) extends IrcResponse {
