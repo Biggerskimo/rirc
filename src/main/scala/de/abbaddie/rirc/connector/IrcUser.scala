@@ -1,6 +1,6 @@
 package de.abbaddie.rirc.connector
 
-import akka.actor.{ActorRef, PoisonPill, Props, Actor}
+import akka.actor._
 import akka.pattern.ask
 import de.abbaddie.rirc.main._
 import org.jboss.netty.channel.{Channel => NettyChannel}
@@ -15,6 +15,7 @@ import org.scala_tools.time.Imports._
 import de.abbaddie.rirc.Munin
 import scala.Some
 import de.abbaddie.rirc.main._
+import akka.actor.SupervisorStrategy.Resume
 
 class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) extends User {
 	def initActor() = Server.actorSystem.actorOf(Props(new IrcUserSystemActor(IrcUser.this)), name = uid.toString)
@@ -42,6 +43,10 @@ case object InitDummy
 case object Tick
 
 class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
+	override val supervisorStrategy = OneForOneStrategy() {
+		case ex: Exception => Resume
+	}
+
 	def receive = {
 		case ConnectMessage(_) => // it's me!
 			user.ds ! RPL_WELCOME()
