@@ -18,6 +18,7 @@ import de.abbaddie.rirc.main.KickMessage
 import de.abbaddie.rirc.main.PrivateNoticeMessage
 import de.abbaddie.rirc.main.QuitMessage
 import com.typesafe.config.Config
+import concurrent.duration._
 
 class ChanServ extends DefaultRircModule with RircAddon {
 	def init() {
@@ -105,7 +106,10 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 			resync()
 
 		case JoinMessage(_, user) =>
-			checkUser(user)
+			// delay check, some irc clients wouldnt show @/+ without this delay
+			context.system.scheduler.scheduleOnce(1 second) {
+				checkUser(user)
+			}
 
 		case PartMessage(_, user, _) if user == suser =>
 			Server.events.unsubscribe(self, ChannelClassifier(channel))
