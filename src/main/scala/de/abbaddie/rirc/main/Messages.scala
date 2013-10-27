@@ -55,7 +55,7 @@ case class ChannelModeChangeMessage(channel : Channel, sender : User, mode : Cha
 
 case class ConnectMessage(user : User) extends Message with UserMessage with ServerMessage
 
-case class InvitationMessage(channel : Channel, invitar : User, invited : User) extends Message with ChannelMessage with UserMessage {
+case class InvitationMessage(channel : Channel, invitar : User, invited : User) extends Message with UserMessage {
 	def user = invited
 }
 
