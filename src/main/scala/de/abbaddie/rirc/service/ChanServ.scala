@@ -211,6 +211,18 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 				}
 			}
 
+		case ServiceCommandMessage(_, user, "invite", inviteds @_*) =>
+			inviteds.foreach { invited => Server.users.get(invited) match {
+					case Some(user2) if channel.users.contains(user2) =>
+						Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " ist bereits im Channel.")
+					case Some(user2) =>
+						Server.events ! InvitationMessage(channel, user, user2)
+						Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " eingeladen.")
+					case None =>
+						Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " nicht gefunden.")
+				}
+			}
+
 		case ConnectMessage(_) |
 			 QuitMessage(_, _) |
 			 KickMessage(_, _, _) |
