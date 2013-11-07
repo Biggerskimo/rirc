@@ -10,5 +10,12 @@ project/target/*
 .project
 doc
 channels.yml
+channels.yml~
 accounts.yml
+accounts.yml~
 build
+src/main/resources/application.conf
+motd
+log
+jmunin
+jmunin~
