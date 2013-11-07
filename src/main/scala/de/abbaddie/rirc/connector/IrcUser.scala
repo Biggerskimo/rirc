@@ -2,8 +2,7 @@ package de.abbaddie.rirc.connector
 
 import akka.actor._
 import akka.pattern.ask
-import de.abbaddie.rirc.main._
-import org.jboss.netty.channel.{Channel => NettyChannel}
+import io.netty.channel.{Channel => NettyChannel}
 import grizzled.slf4j.Logging
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
@@ -18,7 +17,7 @@ import de.abbaddie.rirc.main._
 import akka.actor.SupervisorStrategy.Resume
 
 class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) extends User {
-	def initActor() = Server.actorSystem.actorOf(Props(new IrcUserSystemActor(IrcUser.this)), name = uid.toString)
+	def initActor() = Server.actorSystem.actorOf(Props(classOf[IrcUserSystemActor], this), name = uid.toString)
 
 	var ds : ActorRef = null
 	var us : ActorRef = null
@@ -161,9 +160,9 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case ChannelCloseMessage(_) =>
 
 		case InitDummy =>
-			user.ds = context.actorOf(Props(new IrcUserDownstreamActor(user, user.channel)), name = "ds")
-			user.us = context.actorOf(Props(new IrcUserUpstreamActor(user)), name = "us")
-			user.pinger = context.actorOf(Props(new IrcUserPingActor(user)), name = "ping")
+			user.ds = context.actorOf(Props(classOf[IrcUserDownstreamActor], user, user.channel), name = "ds")
+			user.us = context.actorOf(Props(classOf[IrcUserUpstreamActor], user), name = "us")
+			user.pinger = context.actorOf(Props(classOf[IrcUserPingActor], user), name = "ping")
 			implicit val dispatcher = context.system.dispatcher
 			context.system.scheduler.schedule(IrcConstants.TIMEOUT_TICK, IrcConstants.TIMEOUT_TICK, user.pinger, Tick)
 			sender ! InitDummy
@@ -523,7 +522,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 class IrcUserDownstreamActor(val user : IrcUser, val channel : NettyChannel) extends Actor with Logging {
 	def receive = {
 		case message : IrcResponse =>
-			channel.write(message.asInstanceOf[IrcResponse].toIrcOutgoingLine(user))
+			channel.writeAndFlush(message.toIrcOutgoingLine(user))
 			Munin.inc("irc-out")
 		case message =>
 			error("Dropped message in IrcUserDownStreamActor for " + user.nickname + ": " + message + ", sent by " + context.sender)

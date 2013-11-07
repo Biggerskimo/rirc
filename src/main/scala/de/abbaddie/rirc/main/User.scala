@@ -30,6 +30,7 @@ abstract class User extends GenericTarget {
 	override def toString = "User#" + uid + "(" + nickname + ")"
 
 	def isSystemUser = true
+	def name = nickname
 
 	Server.eventBus.subscribe(actor, UserClassifier(this))
 

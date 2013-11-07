@@ -28,7 +28,7 @@ class ChanServ extends DefaultRircModule with RircAddon {
 }
 
 class ChanServUser(config : Config) extends User {
-	def initActor(): ActorRef = Server.actorSystem.actorOf(Props(new ChanServGeneralActor(this)), name = "ChanServ")
+	def initActor(): ActorRef = Server.actorSystem.actorOf(Props(classOf[ChanServGeneralActor], this), name = "ChanServ")
 
 	val nickname = config.getString("nickname")
 	val username = config.getString("username")
@@ -89,7 +89,7 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 	}
 
 	def join(channel : Channel) {
-		val actor = Server.actorSystem.actorOf(Props(new ChanServChannelActor(suser, channel)), name = "ChanServ" + channel.name.tail)
+		val actor = Server.actorSystem.actorOf(Props(classOf[ChanServChannelActor], suser, channel), name = "ChanServ" + channel.name.tail)
 
 		Server.events.subscribe(actor, ChannelClassifier(channel))
 

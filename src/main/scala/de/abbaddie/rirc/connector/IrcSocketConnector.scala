@@ -1,16 +1,20 @@
 package de.abbaddie.rirc.connector
 
 import grizzled.slf4j.Logging
-import org.jboss.netty.bootstrap.ServerBootstrap
-import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory
 import java.util.concurrent.Executors
-import org.jboss.netty.channel.{Channels, ChannelPipeline, ChannelPipelineFactory}
-import org.jboss.netty.handler.codec.frame.DelimiterBasedFrameDecoder
 import IrcConstants._
-import org.jboss.netty.buffer.{ChannelBuffers, ChannelBuffer}
 import java.net.InetSocketAddress
 import de.abbaddie.rirc.main.{DefaultRircModule, Server}
 import de.abbaddie.rirc.Munin
+import io.netty.channel.{ChannelInitializer, EventLoopGroup}
+import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.socket.nio.NioServerSocketChannel
+import io.netty.bootstrap.ServerBootstrap
+import io.netty.channel.socket.SocketChannel
+import io.netty.handler.codec.{LineBasedFrameDecoder, DelimiterBasedFrameDecoder}
+import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.handler.codec.string.{StringEncoder, StringDecoder}
+import io.netty.util.CharsetUtil
 
 class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 	def start() {
@@ -19,24 +23,30 @@ class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 
 		IrcConstants.config = config
 
-		val bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool, Executors.newCachedThreadPool, Runtime.getRuntime.availableProcessors * 4))
-		bootstrap.setPipelineFactory(new ChannelPipelineFactory {
-			def getPipeline: ChannelPipeline = {
-				Channels.pipeline(
-					new DelimiterBasedFrameDecoder(MAX_LINE_LEN, '\n', '\r', "\r\n"),
-					new IrcLineDecoder(),
-					new IrcLineEncoder(),
-					new IrcLogger(),
-					new IrcUpstreamHandler()
-				)
-			}
-		})
+		val bossGroup = new NioEventLoopGroup()
+		val workerGroup = new NioEventLoopGroup()
 
-		bootstrap.bind(new InetSocketAddress(IrcConstants.PORT))
+		val bootstrap = new ServerBootstrap()
+		bootstrap
+			.group(bossGroup, workerGroup)
+			.channel(classOf[NioServerSocketChannel])
+			.childHandler(new ChannelInitializer[SocketChannel] {
+				def initChannel(ch : SocketChannel) {
+					ch.pipeline().addLast(new LineBasedFrameDecoder(IrcConstants.MAX_LINE_LEN))
+
+					ch.pipeline().addLast(new StringDecoder(CharsetUtil.UTF_8))
+					ch.pipeline().addLast(new StringEncoder(CharsetUtil.UTF_8))
+
+					ch.pipeline().addLast(new IrcLineDecoder())
+					ch.pipeline().addLast(new IrcLineEncoder())
+
+					ch.pipeline().addLast(new IrcUpstreamHandler())
+				}
+			})
+		bootstrap.bind(IrcConstants.PORT).sync()
 	}
 
-	implicit def toChannelBuffer(c : Char) : ChannelBuffer = ChannelBuffers.wrappedBuffer(Array(c.toByte))
-
-	implicit def toChannelBuffer(s : String) : ChannelBuffer = ChannelBuffers.wrappedBuffer(s.toCharArray.map(_.toByte))
+	implicit def toChannelBuffer(c : Char) : ByteBuf = Unpooled.wrappedBuffer(Array(c.toByte))
+	implicit def toChannelBuffer(s : String) : ByteBuf = Unpooled.wrappedBuffer(s.toCharArray.map(_.toByte))
 }
 

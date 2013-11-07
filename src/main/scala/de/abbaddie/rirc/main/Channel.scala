@@ -21,7 +21,7 @@ case class Channel(name : String) extends GenericTarget {
 	var bans : List[String] = Nil
 	def isRegistered = Server.channelProvider.registeredChannels contains name
 
-	val actor = Server.actorSystem.actorOf(Props(new ChannelActor(Channel.this)), name = "channel" + name.tail)
+	val actor = Server.actorSystem.actorOf(Props(classOf[ChannelActor], Channel.this), name = "channel" + name.tail)
 	Server.eventBus.subscribe(actor, new ChannelClassifier(Channel.this))
 	Server.eventBus.makeImportant(actor)
 
@@ -35,56 +35,56 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 		case JoinMessage(_, user) =>
 			channel.users += (user -> new ChannelUserInformation(user))
 			if(channel.users.size == 1) channel.users(user).isOp = true
-			sender ! null
+			sender ! Dummy
 
 		case PartMessage(_, user, _) =>
 			rmUser(user)
-			sender ! null
+			sender ! Dummy
 
 		case QuitMessage(user, _) =>
 			rmUser(user)
-			sender ! null
+			sender ! Dummy
 
 		case TopicChangeMessage(_, _, _, topic) =>
 			channel.topic = Some(topic)
-			sender ! null
+			sender ! Dummy
 
 		case PrivilegeChangeMessage(_, _, user, OP, op) =>
 			channel.users(user).isOp = (op == SET)
-			sender ! null
+			sender ! Dummy
 
 		case PrivilegeChangeMessage(_, _, user, VOICE, op) =>
 			channel.users(user).isVoice = (op == SET)
-			sender ! null
+			sender ! Dummy
 
 		case ChannelModeChangeMessage(_, _, INVITE_ONLY(yes)) =>
 			channel.isInviteOnly = yes
-			sender ! null
+			sender ! Dummy
 
 		case ChannelModeChangeMessage(_, _, PROTECTION(passwd)) =>
 			channel.protectionPassword = passwd
-			sender ! null
+			sender ! Dummy
 
 		case InvitationMessage(_, _, invited) =>
 			channel.invited += invited
-			sender ! null
+			sender ! Dummy
 
 		case KickMessage(_, _, kicked) =>
 			rmUser(kicked)
-			sender ! null
+			sender ! Dummy
 
 		case BanMessage(_, _, mask) =>
 			channel.bans ::= mask
-			sender ! null
+			sender ! Dummy
 
 		case UnbanMessage(_, _, mask) =>
 			channel.bans = channel.bans filter(_ != mask)
-			sender ! null
+			sender ! Dummy
 
 		case ChannelCloseMessage(_) =>
 			Server.events.clear(ChannelClassifier(channel))
 			self ! PoisonPill
-			sender ! null
+			sender ! Dummy
 
 		case ChannelCloseMessage(_) |
 			 ChannelCreationMessage(_, _) |
@@ -93,14 +93,14 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 			 NickchangeMessage(_, _, _) |
 			 AuthSuccess(_, _) =>
 			// ignore
-			sender ! null
+			sender ! Dummy
 
 		case ServiceCommandMessage(_, _, _, seq @ _*) =>
-			sender ! null
+			sender ! Dummy
 
 		case message: Any =>
 			error("Dropped message in ChannelActor for " + channel.name + ": " + message)
-			sender ! null
+			sender ! Dummy
 	}
 
 	def rmUser(user : User) {
@@ -113,3 +113,5 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 		channel.invited -= user
 	}
 }
+
+case object Dummy

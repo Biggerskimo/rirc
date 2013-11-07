@@ -1,3 +1,5 @@
 package de.abbaddie.rirc.main
 
-trait GenericTarget
+trait GenericTarget {
+	def name : String
+}
