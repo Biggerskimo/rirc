@@ -46,11 +46,11 @@ case class RPL_ISUPPORT() extends IrcServerResponse(5, "are supported by this se
 	"MAXCHANNELS=20 " + // TODO
 	"MAXBANS=100 " + // TODO
 	"NETWORK=" + IrcConstants.OUR_NAME + " " +
-	"CASEMAPPING=rfc1459" +
-	"TOPICLEN=200" + // TODO
-	"KICKLEN=200" + // TODO
-	"CHANNELLEN=20" + // TODO
-	"NICKLEN=24" // TODO
+	"CASEMAPPING=rfc1459 " +
+	"TOPICLEN=200 " + // TODO
+	"KICKLEN=200 " + // TODO
+	"CHANNELLEN=20 " + // TODO
+	"NICKLEN=24 " // TODO
 )
 
 case class RPL_UMODEIS(modes : String) extends IrcServerResponse(221, "+" + modes)
