@@ -1,4 +1,4 @@
-package de.abbaddie.rirc.connector
+package de.abbaddie.rirc.connector.irc
 
 import akka.util.ByteString
 import concurrent.duration._

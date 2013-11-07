@@ -3,7 +3,6 @@ package de.abbaddie.rirc.service
 import de.abbaddie.rirc.main._
 import akka.actor.{Props, Actor, ActorRef}
 import grizzled.slf4j.Logging
-import de.abbaddie.rirc.connector.IrcConstants
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
 import concurrent.Await
@@ -158,7 +157,7 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 			userChange(user, name, desc => desc.rmVoice, "Der User wurde aus der Voice-Liste entfernt.")
 
 		case ServiceCommandMessage(_, user, "god") =>
-			Server.events ! PrivateNoticeMessage(suser, user, "God: " + IrcConstants.OWNER)
+			Server.events ! PrivateNoticeMessage(suser, user, "God: Biggerskimo")
 
 		case ServiceCommandMessage(_, user, "ping") =>
 			Server.events ! PublicTextMessage(channel, suser, user.nickname + ": " + "Pong!")

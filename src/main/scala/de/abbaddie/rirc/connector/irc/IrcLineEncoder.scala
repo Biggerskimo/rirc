@@ -1,4 +1,4 @@
-package de.abbaddie.rirc.connector
+package de.abbaddie.rirc.connector.irc
 
 import java.nio.charset.Charset
 import io.netty.handler.codec.MessageToMessageEncoder

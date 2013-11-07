@@ -14,7 +14,7 @@ modules = {
 	}
 	connector-irc = {
 		used-as = ["connector"]
-		class = "de.abbaddie.rirc.connector.IrcSocketConnector"
+		class = "de.abbaddie.rirc.connector.irc.IrcSocketConnector"
 
 		owner = "Norbert"
 		version = "1.0.0"

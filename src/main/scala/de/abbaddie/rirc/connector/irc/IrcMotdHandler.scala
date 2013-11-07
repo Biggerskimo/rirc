@@ -1,7 +1,7 @@
-package de.abbaddie.rirc.connector
+package de.abbaddie.rirc.connector.irc
 
 import scala.io.Source
-import de.abbaddie.rirc.connector.IrcResponse._
+import de.abbaddie.rirc.connector.irc.IrcResponse._
 import grizzled.slf4j.Logging
 
 object IrcMotdHandler extends Logging {

@@ -1,4 +1,4 @@
-package de.abbaddie.rirc.connector
+package de.abbaddie.rirc.connector.irc
 
 import java.net.InetSocketAddress
 import org.joda.time.DateTime

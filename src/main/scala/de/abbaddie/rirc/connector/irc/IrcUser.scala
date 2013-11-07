@@ -1,4 +1,4 @@
-package de.abbaddie.rirc.connector
+package de.abbaddie.rirc.connector.irc
 
 import akka.actor._
 import akka.pattern.ask
@@ -15,7 +15,7 @@ import de.abbaddie.rirc.Munin
 import scala.Some
 import de.abbaddie.rirc.main._
 import akka.actor.SupervisorStrategy.Resume
-import de.abbaddie.rirc.connector.IrcResponse._
+import de.abbaddie.rirc.connector.irc.IrcResponse._
 import de.abbaddie.rirc.main.Message._
 
 class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) extends User {
@@ -41,6 +41,7 @@ class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) exten
 }
 
 case object InitDummy
+
 case object Tick
 
 class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {

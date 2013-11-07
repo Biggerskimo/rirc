@@ -1,4 +1,4 @@
-package de.abbaddie.rirc.connector
+package de.abbaddie.rirc.connector.irc
 
 import de.abbaddie.rirc.main.{Server, Channel, User}
 import org.joda.time.DateTime

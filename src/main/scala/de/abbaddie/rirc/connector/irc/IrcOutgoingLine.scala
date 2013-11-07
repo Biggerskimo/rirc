@@ -1,4 +1,4 @@
-package de.abbaddie.rirc.connector
+package de.abbaddie.rirc.connector.irc
 
 class IrcOutgoingLine(val source : Option[String], val command : String, val colonPos : Int, val params : String*) {
 	def this(source : Option[String], command : String, params : String*) = this(source, command, 1, params: _*)

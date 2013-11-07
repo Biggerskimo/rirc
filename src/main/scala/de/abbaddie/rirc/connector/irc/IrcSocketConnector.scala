@@ -1,4 +1,4 @@
-package de.abbaddie.rirc.connector
+package de.abbaddie.rirc.connector.irc
 
 import grizzled.slf4j.Logging
 import java.util.concurrent.Executors
@@ -15,6 +15,7 @@ import io.netty.handler.codec.{LineBasedFrameDecoder, DelimiterBasedFrameDecoder
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.string.{StringEncoder, StringDecoder}
 import io.netty.util.CharsetUtil
+import de.abbaddie.rirc.connector.Connector
 
 class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 	def start() {

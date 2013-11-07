@@ -1,4 +1,4 @@
-package de.abbaddie.rirc.connector
+package de.abbaddie.rirc.connector.irc
 
 import grizzled.slf4j.Logging
 import io.netty.channel.ChannelHandlerContext

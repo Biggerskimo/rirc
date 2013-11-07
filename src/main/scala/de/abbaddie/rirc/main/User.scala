@@ -1,8 +1,6 @@
 package de.abbaddie.rirc.main
 
 import akka.actor.ActorRef
-import de.abbaddie.rirc.connector.IrcConstants
-import java.net.InetSocketAddress
 import de.abbaddie.rirc.service.AuthAccount
 import org.joda.time.DateTime
 import de.abbaddie.rirc.main.Message._
