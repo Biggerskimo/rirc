@@ -3,6 +3,7 @@ package de.abbaddie.rirc.service
 import de.abbaddie.rirc.main._
 import scala.collection.JavaConverters._
 import akka.actor.{Props, ActorRef, Actor}
+import de.abbaddie.rirc.main.Message._
 
 class SilentUsersAddon extends DefaultRircModule with RircAddon {
 	def init() {

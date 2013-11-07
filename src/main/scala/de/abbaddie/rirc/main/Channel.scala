@@ -4,6 +4,7 @@ import akka.actor.{PoisonPill, Props, Actor}
 import collection.immutable.{HashSet, HashMap}
 import org.joda.time.DateTime
 import grizzled.slf4j.Logging
+import de.abbaddie.rirc.main.Message._
 
 class ChannelUserInformation(val user : User) {
 	var isOp = false

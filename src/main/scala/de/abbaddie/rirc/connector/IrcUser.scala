@@ -15,6 +15,8 @@ import de.abbaddie.rirc.Munin
 import scala.Some
 import de.abbaddie.rirc.main._
 import akka.actor.SupervisorStrategy.Resume
+import de.abbaddie.rirc.connector.IrcResponse._
+import de.abbaddie.rirc.main.Message._
 
 class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) extends User {
 	def initActor() = Server.actorSystem.actorOf(Props(classOf[IrcUserSystemActor], this), name = uid.toString)

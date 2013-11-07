@@ -3,6 +3,7 @@ package de.abbaddie.rirc.service
 import akka.actor.Actor
 import de.abbaddie.rirc.main._
 import grizzled.slf4j.Logging
+import de.abbaddie.rirc.main.Message._
 
 class AuthSystem extends Actor with Logging {
 	import context._

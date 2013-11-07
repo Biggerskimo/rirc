@@ -7,18 +7,11 @@ import de.abbaddie.rirc.connector.IrcConstants
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
 import concurrent.Await
-import de.abbaddie.rirc.main.BanMessage
-import de.abbaddie.rirc.main.AuthSuccess
-import de.abbaddie.rirc.main.PublicTextMessage
 import de.abbaddie.rirc.main.Channel
 import scala.Some
-import de.abbaddie.rirc.main.JoinMessage
-import de.abbaddie.rirc.main.ServiceCommandMessage
-import de.abbaddie.rirc.main.KickMessage
-import de.abbaddie.rirc.main.PrivateNoticeMessage
-import de.abbaddie.rirc.main.QuitMessage
 import com.typesafe.config.Config
 import concurrent.duration._
+import de.abbaddie.rirc.main.Message._
 
 class ChanServ extends DefaultRircModule with RircAddon {
 	def init() {

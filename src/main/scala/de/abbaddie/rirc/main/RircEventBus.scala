@@ -10,6 +10,7 @@ import akka.pattern.ask
 import scala.concurrent.Future
 import grizzled.slf4j.Logging
 import de.abbaddie.rirc.Munin
+import de.abbaddie.rirc.main.Message._
 
 class RircEventBus extends ActorEventBus with Logging {
 	type Event = Message

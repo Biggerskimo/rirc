@@ -5,6 +5,7 @@ import de.abbaddie.rirc.connector.IrcConstants
 import java.net.InetSocketAddress
 import de.abbaddie.rirc.service.AuthAccount
 import org.joda.time.DateTime
+import de.abbaddie.rirc.main.Message._
 
 abstract class User extends GenericTarget {
 	def nickname : String

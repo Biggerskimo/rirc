@@ -5,6 +5,7 @@ import scala.collection.immutable.{HashSet, HashMap}
 import de.abbaddie.rirc.service.{ChannelProvider, AuthProvider}
 import grizzled.slf4j.Logging
 import com.typesafe.config.Config
+import de.abbaddie.rirc.main.Message._
 
 object Server {
 	var actorSystem : ActorSystem = null
