@@ -59,7 +59,7 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			user.ds ! RPL_LUSEROP()
 			user.ds ! RPL_LUSERCHANNELS()
 			user.ds ! RPL_LUSERME()
-			user.ds ! ERR_NOMOTD()
+			IrcMotdHandler.send(user)
 
 		case JoinMessage(channel, joiner) =>
 			Server.eventBus.subscribe(self, ChannelClassifier(channel))
@@ -474,6 +474,9 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				case None =>
 					user.ds ! RPL_ENDOFNAMES(name)
 			}
+
+		case IrcIncomingLine("MOTD") =>
+			IrcMotdHandler.send(user)
 	}
 
 	private def handleModeChange(channel : Channel, desc : String, rest : Seq[String]) {

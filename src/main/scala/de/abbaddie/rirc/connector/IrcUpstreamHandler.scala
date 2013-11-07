@@ -21,7 +21,7 @@ class IrcUpstreamHandler extends SimpleChannelInboundHandler[IrcIncomingLine] wi
 
 	override def channelRead0(ctx: ChannelHandlerContext, line : IrcIncomingLine) {
 		Munin.inc("irc-in")
-		info("incoming line" + line)
+
 		user.us ! line
 		user.lastActivity = DateTime.now
 		user.dying = false

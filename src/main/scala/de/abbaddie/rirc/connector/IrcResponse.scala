@@ -177,6 +177,11 @@ object IrcResponse {
 	case class RPL_BANLIST(channel : Channel, mask : String) extends IrcServerResponse(367, mask, channel.name)
 	case class RPL_ENDOFBANLIST(channel : Channel) extends IrcServerResponse(368, "End of channel ban list", channel.name)
 
+	case class RPL_MOTD(line : String) extends IrcServerResponse(372, "- " + line)
+
+	case class RPL_MOTDSTART() extends IrcServerResponse(375, "- " + IrcConstants.OUR_HOST + " Message of the Day -")
+	case class RPL_ENDOFMOTD() extends IrcServerResponse(376, "End of /MOTD command")
+
 	case class ERR_NOSUCHNICK(name : String) extends IrcServerResponse(401, "No such nick/channel", name)
 
 	case class ERR_NOSUCHCHANNEL(name : String) extends IrcServerResponse(403, "No such channel", name)

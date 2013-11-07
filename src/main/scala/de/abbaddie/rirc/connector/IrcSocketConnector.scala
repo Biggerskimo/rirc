@@ -23,6 +23,8 @@ class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 
 		IrcConstants.config = config
 
+		IrcMotdHandler.read("motd")
+
 		val bossGroup = new NioEventLoopGroup()
 		val workerGroup = new NioEventLoopGroup()
 
