@@ -75,7 +75,7 @@ object IrcResponse {
 				.mkString(" "),
 		user.nickname)
 
-	case class RPL_ENDOFWHO() extends IrcServerResponse(315, "End of /WHO list")
+	case class RPL_ENDOFWHO(name : String) extends IrcServerResponse(315, "End of /WHO list", name)
 
 	case class RPL_CHANNELMODEIS(channel : Channel) /* sic */extends IrcResponse { // 324
 	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
@@ -122,22 +122,38 @@ object IrcResponse {
 
 	case class RPL_INVITING(channel : Channel, user : User) extends IrcServerResponse(341, channel.name, user.nickname)
 
-	case class RPL_WHOREPLY(user : User) extends IrcResponse { // 352
-	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
-		new IrcOutgoingLine(
-			Some(IrcConstants.OUR_HOST),
-			"352", // (numeric)
-			2, // (colon before hop count)
-			"*", // channels
-			user.username,
-			user.hostname,
-			user.nickname,
-			"H", // Here/Gone
-			"0", // hop count
-			user.realname
-		)
+	case class RPL_WHOREPLY(user : User, channame : String, userflags : String) extends IrcResponse { // 352
+		def toIrcOutgoingLine(user2: IrcUser): IrcOutgoingLine = {
+			new IrcOutgoingLine(
+				Some(IrcConstants.OUR_HOST),
+				"352", // (numeric)
+				2, // (colon before hop count)
+				user2.nickname,
+				channame, // channels
+				"~" + user.username,
+				user.hostname,
+				IrcConstants.OUR_HOST,
+				user.nickname,
+				userflags, // Here/Gone
+				"0", // hop count
+				user.realname
+			)
+		}
 	}
+	object RPL_WHOREPLY {
+		def apply(user : User) = new RPL_WHOREPLY(user, "*", "H")
+		def apply(user : User, channel : Channel) = {
+			channel.users.get(user) match {
+				case Some(info) if info.isOp =>
+					new RPL_WHOREPLY(user, channel.name, "H@")
+				case Some(info) if info.isVoice =>
+					new RPL_WHOREPLY(user, channel.name, "H+")
+				case _ =>
+					new RPL_WHOREPLY(user, channel.name, "H")
+			}
+		}
 	}
+
 	case class RPL_NAMEREPLY(channel : Channel) extends IrcResponse { // 353
 	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
 		val users = channel.users

@@ -225,11 +225,18 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 		case IrcIncomingLine("PING", no : String) =>
 			user.ds ! new IrcSimpleResponse("PONG", no)
 
-		case IrcIncomingLine("WHO", mask, _*) =>
-			// TODO
-			if(mask == user.nickname)
-				user.ds ! RPL_WHOREPLY(user)
-			user.ds ! RPL_ENDOFWHO()
+		case IrcIncomingLine("WHO", name, _*) =>
+			Server.targets get name match {
+				case Some(user2 : User) if user2 == user =>
+					user.ds ! RPL_WHOREPLY(user)
+				case Some(user2 : User) =>
+					// ignore
+				case Some(channel : Channel) if channel.users.contains(user) =>
+					channel.users.keys.foreach(user.ds ! RPL_WHOREPLY(_, channel))
+				case _ =>
+					// ignore
+			}
+			user.ds ! RPL_ENDOFWHO(name)
 
 		case IrcIncomingLine("JOIN", names, extra @ _*) =>
 			val passwds = extra.headOption.getOrElse("")
