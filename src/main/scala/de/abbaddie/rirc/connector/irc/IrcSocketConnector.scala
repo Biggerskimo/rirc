@@ -1,13 +1,13 @@
 package de.abbaddie.rirc.connector.irc
 
 import grizzled.slf4j.Logging
-import java.util.concurrent.Executors
+import java.util.concurrent.{ThreadFactory, TimeUnit, Executors}
 import IrcConstants._
 import java.net.InetSocketAddress
 import de.abbaddie.rirc.main.{DefaultRircModule, Server}
 import de.abbaddie.rirc.Munin
-import io.netty.channel.{ChannelInitializer, EventLoopGroup}
-import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.{ChannelOption, ChannelInitializer, EventLoopGroup}
+import io.netty.channel.nio.{NioEventLoop, NioEventLoopGroup}
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.socket.SocketChannel
@@ -16,6 +16,10 @@ import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.string.{StringEncoder, StringDecoder}
 import io.netty.util.CharsetUtil
 import de.abbaddie.rirc.connector.Connector
+import akka.util.Timeout
+import concurrent.duration._
+import io.netty.util.concurrent.EventExecutor
+import java.nio.channels.spi.SelectorProvider
 
 class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 	def start() {
@@ -46,6 +50,8 @@ class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 					ch.pipeline().addLast(new IrcUpstreamHandler())
 				}
 			})
+		bootstrap.childOption[AnyRef](ChannelOption.WRITE_BUFFER_LOW_WATER_MARK.asInstanceOf[ChannelOption[AnyRef]], 1024.asInstanceOf[AnyRef])
+		bootstrap.childOption[AnyRef](ChannelOption.WRITE_BUFFER_HIGH_WATER_MARK.asInstanceOf[ChannelOption[AnyRef]], 2048.asInstanceOf[AnyRef])
 		bootstrap.bind(IrcConstants.PORT).sync()
 	}
 

@@ -2,7 +2,7 @@ package de.abbaddie.rirc.connector.irc
 
 import akka.actor._
 import akka.pattern.ask
-import io.netty.channel.{Channel => NettyChannel}
+import io.netty.channel.{Channel => NettyChannel, ChannelFuture, ChannelFutureListener}
 import grizzled.slf4j.Logging
 import akka.util.Timeout
 import java.util.concurrent.TimeUnit
@@ -38,6 +38,11 @@ class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) exten
 	// ensure ds + us
 	implicit val timeout = Timeout(1, TimeUnit.SECONDS)
 	Await.result(actor ? InitDummy, timeout.duration)
+
+	def killImmidiately(message : String) {
+		isDead = true
+		Server.events ! QuitMessage(this, Some(message))
+	}
 }
 
 case object InitDummy
@@ -180,7 +185,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 	var nickSet = false
 	var loggedIn = false
 
-	def receive = receiveStart orElse receiveAux
+	def receive = receiveFilter orElse receiveStart orElse receiveAux
 
 	def receiveAux : Receive = {
 		case IrcChannelError(msg) if !user.isDead =>
@@ -213,10 +218,15 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 			user.ds ! ERR_NOTREGISTERED()
 	}
 
+	def receiveFilter : Receive = {
+		case _ if user.isDead =>
+			// discard
+	}
+
 	def checkRegistration() {
 		if(nickSet && loggedIn) {
 			Server.events ! ConnectMessage(user)
-			context.become(receiveUsual orElse receiveAux)
+			context.become(receiveFilter orElse receiveUsual orElse receiveAux)
 		}
 	}
 
@@ -533,9 +543,26 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 }
 
 class IrcUserDownstreamActor(val user : IrcUser, val channel : NettyChannel) extends Actor with Logging {
+	val listener = new ChannelFutureListener {
+		def operationComplete(future: ChannelFuture) {
+			if(future.isDone && future.isSuccess && !user.isDead) {
+				IrcQueueHandler.dec(user)
+			}
+		}
+	}
+
+	override def preStart() {
+		IrcQueueHandler.touch(user)
+	}
+
 	def receive = {
+		case message : IrcResponse if user.isDead =>
+			// discard message
+
 		case message : IrcResponse =>
-			channel.writeAndFlush(message.toIrcOutgoingLine(user))
+			IrcQueueHandler.inc(user)
+			channel.write(message.toIrcOutgoingLine(user)).addListener(listener)
+			channel.flush()
 			Munin.inc("irc-out")
 		case message =>
 			error("Dropped message in IrcUserDownStreamActor for " + user.nickname + ": " + message + ", sent by " + context.sender)
