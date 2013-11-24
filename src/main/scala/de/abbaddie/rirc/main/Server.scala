@@ -28,7 +28,7 @@ object Server {
 	def isValidNick(nick : String) =
 		nick.length >= config.getInt("nicklen_min") &&
 		nick.length <= config.getInt("nicklen_max") &&
-		nick.matches("^[A-Za-z\\[\\]\\{\\}\\\\`\\|^][A-Za-z0-9\\[\\]\\{\\}\\\\`\\|^-]*$")
+		nick.matches("^[A-Za-z_\\[\\]\\{\\}\\\\`\\|^][A-Za-z0-9_\\[\\]\\{\\}\\\\`\\|^-]*$")
 
 	def nickToLowerCase(nick : String) =
 		nick.map({

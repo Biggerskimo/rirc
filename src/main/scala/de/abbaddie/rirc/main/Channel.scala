@@ -96,9 +96,6 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 			// ignore
 			sender ! Dummy
 
-		case ServiceCommandMessage(_, _, _, seq @ _*) =>
-			sender ! Dummy
-
 		case message: Any =>
 			error("Dropped message in ChannelActor for " + channel.name + ": " + message)
 			sender ! Dummy

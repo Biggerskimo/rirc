@@ -4,9 +4,9 @@
 			 uri="antlib:org.apache.maven.artifact.ant"
 			 classpathref="maven-ant-tasks.classpath" />
 	<path id="scala.classpath">
-		<pathelement location="/home/biggy/bin/scala/lib/scala-compiler.jar" />
-		<pathelement location="/home/biggy/bin/scala/lib/scala-library.jar"/>
-		<pathelement location="/home/biggy/bin/scala/lib/scala-reflect.jar"/>
+		<pathelement location="/home/biggy/bin/scaladir/lib/scala-compiler.jar" />
+		<pathelement location="/home/biggy/bin/scaladir/lib/scala-library.jar"/>
+		<pathelement location="/home/biggy/bin/scaladir/lib/scala-reflect.jar"/>
 	</path>
 	<taskdef resource="scala/tools/ant/antlib.xml" classpathref="scala.classpath"/>
 

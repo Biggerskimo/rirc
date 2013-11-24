@@ -10,16 +10,11 @@ abstract class User extends GenericTarget {
 	def username : String
 	def realname : String
 	def hostname : String
-
-
-	var authacc : Option[AuthAccount] = None
-	var isOper = false
-
-	val uid = IdGenerator("user")
-
-	val actor = initActor()
-
 	def initActor() : ActorRef
+	def isSystemUser = true
+	def name = nickname
+	def fullString = nickname + "!~" + username + "@" + hostname
+	def extendedString = fullString + "#" + uid
 
 	override def hashCode = uid
 	override def equals(other : Any) = other match {
@@ -28,13 +23,11 @@ abstract class User extends GenericTarget {
 	}
 	override def toString = "User#" + uid + "(" + nickname + ")"
 
-	def isSystemUser = true
-	def name = nickname
-
-	Server.eventBus.subscribe(actor, UserClassifier(this))
-
-	def fullString = nickname + "!~" + username + "@" + hostname
-	def extendedString = fullString + "#" + uid
-
+	var authacc : Option[AuthAccount] = None
+	var isOper = false
+	val uid = IdGenerator("user")
+	val actor = initActor()
 	var lastActivity : DateTime = DateTime.now
+
+	Server.events.subscribe(actor, UserClassifier(this))
 }

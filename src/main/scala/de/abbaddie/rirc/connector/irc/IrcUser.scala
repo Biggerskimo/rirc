@@ -18,15 +18,12 @@ import akka.actor.SupervisorStrategy.Resume
 import de.abbaddie.rirc.connector.irc.IrcResponse._
 import de.abbaddie.rirc.main.Message._
 
-class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) extends User {
+class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) extends TimeoutManagedUser {
 	def initActor() = Server.actorSystem.actorOf(Props(classOf[IrcUserSystemActor], this), name = uid.toString)
+	def sendPing() = ds ! CMD_PING()
 
 	var ds : ActorRef = null
 	var us : ActorRef = null
-	var pinger : ActorRef = null
-	var dying = false
-	var dies : DateTime = DateTime.now + 10.years
-	var isDead = false
 
 	override def isSystemUser = false
 
@@ -163,16 +160,11 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case UnbanMessage(channel, sender, mask) =>
 			user.ds ! MSG_MODE(channel, sender, "-b", mask)
 
-		case ServiceCommandMessage(_, _, _, ignore @ _*) =>
-
 		case ChannelCloseMessage(_) =>
 
 		case InitDummy =>
 			user.ds = context.actorOf(Props(classOf[IrcUserDownstreamActor], user, user.channel), name = "ds")
 			user.us = context.actorOf(Props(classOf[IrcUserUpstreamActor], user), name = "us")
-			user.pinger = context.actorOf(Props(classOf[IrcUserPingActor], user), name = "ping")
-			implicit val dispatcher = context.system.dispatcher
-			context.system.scheduler.schedule(IrcConstants.TIMEOUT_TICK, IrcConstants.TIMEOUT_TICK, user.pinger, Tick)
 			sender ! InitDummy
 
 		case message : Any =>
@@ -319,16 +311,6 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					user.ds ! ERR_UMODEUNKNOWNFLAG()
 				case None =>
 					user.ds ! ERR_NOSUCHCHANNEL(name)
-			}
-
-		case IrcIncomingLine("PRIVMSG", target, message) if message startsWith "!" =>
-			Server.channels get target match {
-				case Some(channel) =>
-					val parts = message split " "
-					Server.events ! ServiceCommandMessage(channel, user, parts(0).tail toLowerCase, parts.tail :_*)
-					Server.events ! PublicTextMessage(channel, user, message)
-				case _ =>
-					user.ds ! ERR_NOSUCHCHANNEL(target)
 			}
 
 		case IrcIncomingLine("PRIVMSG", target, message) =>
@@ -570,20 +552,5 @@ class IrcUserDownstreamActor(val user : IrcUser, val channel : NettyChannel) ext
 
 	override def postStop() {
 		channel.close
-	}
-}
-
-class IrcUserPingActor(val user : IrcUser) extends Actor with Logging {
-	def receive = {
-		case Tick if user.dying && user.dies < DateTime.now =>
-			Server.events ! QuitMessage(user, Some("Ping timeout"))
-			info("killed " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
-		case Tick if user.dying =>
-			// wait ...
-		case Tick if user.lastActivity < DateTime.now - IrcConstants.TIMEOUT.toMillis =>
-			user.dies = DateTime.now + IrcConstants.TIMEOUT.toMillis
-			user.dying = true
-			user.ds ! CMD_PING()
-			info("pinged " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
 	}
 }

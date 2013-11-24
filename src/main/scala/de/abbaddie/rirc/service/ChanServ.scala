@@ -110,7 +110,25 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 		case KickMessage(_, _, user) if user == suser =>
 			Server.events ! JoinMessage(channel, user)
 
-		case ServiceCommandMessage(_, user, "register", ownerName) =>
+		case PublicTextMessage(_, user, message) if message.startsWith("!") =>
+			 processServiceRequest(user)(message.substring(1).split(" "))
+
+		case ConnectMessage(_) |
+			 QuitMessage(_, _) |
+			 KickMessage(_, _, _) |
+			 BanMessage(_, _, _) |
+			 PartMessage(_, _, _) |
+			 NickchangeMessage(_, _, _) |
+			 PrivilegeChangeMessage(_, _, _, _, _) |
+			 PublicTextMessage(_, _, _) |
+			 TopicChangeMessage(_, _, _, _) =>
+
+		case message =>
+			error("Dropped message in ChanServChannelActor: " + message + ", sent by " + context.sender)
+	}
+
+	def processServiceRequest(user : User) : PartialFunction[Array[String], Unit] = {
+		case Array("register", ownerName) =>
 			if(user.authacc.isEmpty || !user.isOper)
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Oper-Rechte benötigt.")
 			else if(channel.isRegistered)
@@ -126,7 +144,7 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 				}
 			}
 
-		case ServiceCommandMessage(_, user, "resync") =>
+		case Array("resync") =>
 			if(!checkOp(user))
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 			else {
@@ -134,7 +152,7 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 				Server.events ! PrivateNoticeMessage(suser, user, "Der Privilegiencheck wurde ausgeführt.")
 			}
 
-		case ServiceCommandMessage(_, user, "users") =>
+		case Array("users") =>
 			Server.channelProvider.registeredChannels get channel.name match {
 				case Some(desc) =>
 					Server.events ! PrivateNoticeMessage(suser, user, "Owner: " + desc.owner)
@@ -144,25 +162,25 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 					Server.events ! PrivateNoticeMessage(suser, user, "Der Channel ist nicht registriert!")
 			}
 
-		case ServiceCommandMessage(_, user, "addop", name) =>
+		case Array("addop", name) =>
 			userChange(user, name, desc => desc.addOp , "Der User wurde zur Op-Liste hinzugefügt.")
 
-		case ServiceCommandMessage(_, user, "addvoice", name) =>
+		case Array("addvoice", name) =>
 			userChange(user, name, desc => desc.addVoice, "Der User wurde zur Voice-Liste hinzugefügt.")
 
-		case ServiceCommandMessage(_, user, "rmop", name) =>
+		case Array("rmop", name) =>
 			userChange(user, name, desc => desc.rmOp, "Der User wurde aus der Op-Liste entfernt.")
 
-		case ServiceCommandMessage(_, user, "rmvoice", name) =>
+		case Array("rmvoice", name) =>
 			userChange(user, name, desc => desc.rmVoice, "Der User wurde aus der Voice-Liste entfernt.")
 
-		case ServiceCommandMessage(_, user, "god") =>
+		case Array("god") =>
 			Server.events ! PrivateNoticeMessage(suser, user, "God: Biggerskimo")
 
-		case ServiceCommandMessage(_, user, "ping") =>
+		case Array("ping") =>
 			Server.events ! PublicTextMessage(channel, suser, user.nickname + ": " + "Pong!")
 
-		case ServiceCommandMessage(_, user, "8ball", rest @ _*) =>
+		case Array("8ball", rest @ _*) =>
 			val msg = rest.flatMap(_.map(_.toInt)).sum % 4 match {
 				case 0 => "Not a chance."
 				case 1 => "In your dreams."
@@ -171,14 +189,14 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 			}
 			Server.events ! PublicTextMessage(channel, suser, user.nickname + ": " + msg)
 
-		case ServiceCommandMessage(_, user, "part") =>
+		case Array("part") =>
 			if(user.authacc.isEmpty || !user.isOper)
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Oper-Rechte benötigt.")
 			else {
-				Server.events ! PartMessage(channel, user, None)
+				Server.events ! PartMessage(channel, suser, None)
 			}
 
-		case ServiceCommandMessage(_, user, "set", "topicmask", rest @_*) =>
+		case Array("set", "topicmask", rest @_*) =>
 			if(!checkOp(user))
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 			else {
@@ -190,7 +208,7 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 				}
 			}
 
-		case ServiceCommandMessage(_, user, "topic", rest @_*) =>
+		case Array("topic", rest @_*) =>
 			if(!checkOp(user))
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 			else {
@@ -207,30 +225,54 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 				}
 			}
 
-		case ServiceCommandMessage(_, user, "invite", inviteds @_*) =>
+		case Array("invite", inviteds @_*) =>
 			inviteds.foreach { invited => Server.users.get(invited) match {
-					case Some(user2) if channel.users.contains(user2) =>
-						Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " ist bereits im Channel.")
-					case Some(user2) =>
-						Server.events ! InvitationMessage(channel, user, user2)
-						Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " eingeladen.")
-					case None =>
-						Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " nicht gefunden.")
+				case Some(user2) if channel.users.contains(user2) =>
+					Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " ist bereits im Channel.")
+				case Some(user2) =>
+					Server.events ! InvitationMessage(channel, user, user2)
+					Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " eingeladen.")
+				case None =>
+					Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " nicht gefunden.")
 				}
 			}
 
-		case ConnectMessage(_) |
-			 QuitMessage(_, _) |
-			 KickMessage(_, _, _) |
-			 BanMessage(_, _, _) |
-			 PartMessage(_, _, _) |
-			 NickchangeMessage(_, _, _) |
-			 PrivilegeChangeMessage(_, _, _, _, _) |
-			 PublicTextMessage(_, _, _) |
-			 TopicChangeMessage(_, _, _, _) =>
+		case Array("op", names @ _*) =>
+			names.foreach(privilegeChange(user, _, OP, SET))
 
-		case message =>
-			error("Dropped message in ChanServChannelActor: " + message + ", sent by " + context.sender)
+		case Array("deop", names @ _*) =>
+			names.foreach(privilegeChange(user, _, OP, UNSET))
+
+		case Array("voice", names @ _*) =>
+			names.foreach(privilegeChange(user, _, VOICE, SET))
+
+		case Array("devoice", names @ _*) =>
+			names.foreach(privilegeChange(user, _, VOICE, UNSET))
+
+		case Array("up") =>
+			checkUser(user)
+
+		case Array("down") =>
+			if(checkOp(user)) {
+				privilegeChange(user, user.nickname, OP, UNSET)
+				privilegeChange(user, user.nickname, VOICE, UNSET)
+			}
+
+		case arr =>
+			error(s"illegal service request from $user: !" + arr.mkString(" "))
+	}
+
+	def privilegeChange(user : User, name : String, priv : Privilege, op : PrivilegeOperation) {
+		if(!checkOp(user))
+			Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+		else {
+			Server.users.get(name) match {
+				case Some(user2) if !channel.users.contains(user) =>
+					Server.events ! PrivateNoticeMessage(suser, user, s"Ich kann hier keinen $name finden.")
+				case Some(user2) =>
+					Server.events ! PrivilegeChangeMessage(channel, user, user2, priv, op)
+			}
+		}
 	}
 
 	def userChange(user : User, name : String, todo : ChannelDescriptor => (String => Unit), message : String) {
