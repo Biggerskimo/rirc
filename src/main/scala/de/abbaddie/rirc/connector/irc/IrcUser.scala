@@ -150,7 +150,7 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			user.ds ! MSG_INVITE(channel, inviter)
 
 		case KickMessage(channel, kicker, kicked) =>
-			if(user == sender)
+			if(user == kicked)
 				Server.eventBus.unsubscribe(self, ChannelClassifier(channel))
 			user.ds ! MSG_KICK(channel, kicker, kicked)
 
