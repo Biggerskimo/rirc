@@ -186,6 +186,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 			// ignore
 		case line : IrcIncomingLine =>
 			info("Dropped incoming line from " + user.nickname + ": " + line)
+			user.ds ! ERR_UNKNOWNCOMMAND(line.toString)
 		case _ =>
 			// ignore
 	}

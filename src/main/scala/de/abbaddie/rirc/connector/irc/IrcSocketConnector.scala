@@ -1,25 +1,17 @@
 package de.abbaddie.rirc.connector.irc
 
 import grizzled.slf4j.Logging
-import java.util.concurrent.{ThreadFactory, TimeUnit, Executors}
-import IrcConstants._
-import java.net.InetSocketAddress
-import de.abbaddie.rirc.main.{DefaultRircModule, Server}
+import de.abbaddie.rirc.main.DefaultRircModule
 import de.abbaddie.rirc.Munin
-import io.netty.channel.{ChannelOption, ChannelInitializer, EventLoopGroup}
-import io.netty.channel.nio.{NioEventLoop, NioEventLoopGroup}
+import io.netty.channel.{ChannelOption, ChannelInitializer}
+import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.socket.SocketChannel
-import io.netty.handler.codec.{LineBasedFrameDecoder, DelimiterBasedFrameDecoder}
+import io.netty.handler.codec.LineBasedFrameDecoder
 import io.netty.buffer.{ByteBuf, Unpooled}
-import io.netty.handler.codec.string.{StringEncoder, StringDecoder}
-import io.netty.util.CharsetUtil
 import de.abbaddie.rirc.connector.Connector
-import akka.util.Timeout
-import concurrent.duration._
-import io.netty.util.concurrent.EventExecutor
-import java.nio.channels.spi.SelectorProvider
+import scala.collection.JavaConverters._
 
 class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 	def start() {
@@ -41,8 +33,7 @@ class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 				def initChannel(ch : SocketChannel) {
 					ch.pipeline().addLast(new LineBasedFrameDecoder(IrcConstants.MAX_LINE_LEN))
 
-					ch.pipeline().addLast(new StringDecoder(CharsetUtil.UTF_8))
-					ch.pipeline().addLast(new StringEncoder(CharsetUtil.UTF_8))
+					ch.pipeline().addLast(new IrcStringCodec(config.getStringList("charsets").asScala))
 
 					ch.pipeline().addLast(new IrcLineDecoder())
 					ch.pipeline().addLast(new IrcLineEncoder())
