@@ -23,12 +23,12 @@
 			<h4>Registrierung</h4>
 			<p>Syntax: <code><b>/register</b> NAME PASSWORT MAILADRESSE</code></p>
 			<p>
-				Aktuell gibt es keine Möglichkeit, sein Passwort zu ändern oder sich ein neues zuschicken zu lassen. Entsprechend: Gut merken!
+				Wurde das Passwort geändert, lässt es sich derzeit nur von einem Admin ändern. Also: Gut merken!
 			</p>
 			
 			<hr />
 			<h4>Login</h4>
-			<p>Syntax: <code><b>/login</b> NAME PASSWORT</code></p>
+			<p>Syntax: <code><b>/login</b> NAME PASSWORT</code> | <code><b>/auth</b> NAME PASSWORT</code></p>
 		</div>
 		
 		<div class="container">
@@ -78,12 +78,12 @@
 			
 			<hr />
 			<h4>(Temporär) Sich selbst Rechte geben/nehmen</h4>
-			<p>Syntax: <code><b>!up</b></code> (Sich selbst Rechte geben)<br />
-			Syntax: <code><b>!down</b></code> (Sich selbst Rechte geben)</p>
+			<p>Syntax: <code><b>!up</b></code> | <code><b>!hüpf</b></code> (Sich selbst Rechte geben)<br />
+			Syntax: <code><b>!down</b></code> | <code><b>!duck</b></code> (Sich selbst Rechte geben)</p>
 			<p>Benötigte Rechte: Keine</p>
 			<p>
-				Bei !down entzieht ChanServ einem ggf. vorhandene Op- oder Voice-Rechte (wie bei !deop bzw. !devoice).<br />
-				Bei !up gibt einem ChanServ entsprechend der verwalteten Liste Rechte (wie bei !op bzw. !voice).<br />
+				Bei <code>!down</code> entzieht ChanServ einem ggf. vorhandene Op- oder Voice-Rechte (wie bei <code>!deop</code> bzw. <code>!devoice</code>).<br />
+				Bei <code>!up</code> gibt einem ChanServ entsprechend der verwalteten Liste Rechte (wie bei <code>!op</code> bzw. <code>!voice</code>).<br />
 			</p>
 			
 			<hr />
@@ -110,10 +110,21 @@
 			</p>
 			
 			<hr />
+			<h4>Benutzer-Einstellungen</h4>
+			<p>Syntax: <code><b>!uset info</b> TEXT</code> | <code><b>!setinfo</b> TEXT</code> (Text setzen, den ChanServ beim Kanalbeitritt anzeigt)<br />
+			Syntax: <code><b>!uset noautoop</b> 1|0</code> (Unterdrückt das automatische verteilen von Rechten durch ChanServ)<br />
+			Syntax: <code><b>!uset autoinvite</b> 1|0</code> (Stellt ein, ob ChanServ einen automatisch einladen soll wenn man sich anmeldet)
+			</p>
+			<p>Benötigte Rechte: Keine</p>
+			<p>
+			</p>
+			
+			<hr />
 			<h4>Weitere Kommandos</h4>
-			<p>Syntax: <code><b>!8ball</b> TEXT</code><br />
-			Syntax: <code><b>!god</b></code><br />
-			Syntax: <code><b>!ping</b></code>
+			<p>Syntax: <code><b>!8ball</b> TEXT</code> | <code><b>!8</b> TEXT</code><br />
+			Syntax: <code><b>!god</b></code> | <code><b>!gott</b></code> | <code><b>!bra</b></code><br />
+			Syntax: <code><b>!ping</b></code><br />
+			Syntax: <code><b>!help</b></code>
 			</p>
 			<p>Benötigte Rechte: Keine</p>
 		</div>
