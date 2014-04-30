@@ -92,6 +92,8 @@ object Message {
 
 	case class RegistrationFailure(user : User, name : String, message : String) extends Message with UserMessage
 
+	case class ServiceRequest(channel : Channel, user : User, data : String) extends Message with ChannelMessage
+
 	case class TopicChangeMessage(channel : Channel, user : User, oldTopic : Option[String], newTopic : String) extends Message with ChannelMessage
 
 	case class UnbanMessage(channel : Channel, user : User, mask : String) extends Message with ChannelMessage

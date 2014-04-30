@@ -104,7 +104,8 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 			 PublicTextMessage(_, _, _) |
 			 PublicNoticeMessage(_, _, _) |
 			 NickchangeMessage(_, _, _) |
-			 AuthSuccess(_, _) =>
+			 AuthSuccess(_, _) |
+			 ServiceRequest(_, _, _) =>
 			// ignore
 			sender ! Dummy
 

@@ -76,10 +76,26 @@ class YamlChannel extends ChannelDescriptor {
 	@BeanProperty
 	var banList : JavaList[YamlBan] = new JavaArrayList()
 	@BeanProperty
-	var additional : JavaMap[String, String] = new JavaHashMap()
+	var additionalMap : JavaMap[String, String] = new JavaHashMap()
+	@BeanProperty
+	var usersMap : JavaMap[String, JavaMap[String, String]] = new JavaHashMap()
 
-	def getAdditional(key : String) = if(additional.containsKey(key)) Some(additional.get(key)) else None
-	def setAdditional(key : String, value : String) = additional.put(key, value)
+	def getAdditional(key : String) = if(additionalMap.containsKey(key)) Some(additionalMap.get(key)) else None
+	def setAdditional(key : String, value : String) = additionalMap.put(key, value)
+	
+	def getUserSetting(account : AuthAccount, key : String) = {
+		if(!usersMap.containsKey(account.id)) None
+		else {
+			val userMap = usersMap.get(account.id)
+			if(!userMap.containsKey(key)) None
+			else Some(userMap.get(key))
+		}
+	}
+	def setUserSetting(account : AuthAccount, key : String, value : String) {
+		if(!usersMap.containsKey(account.id)) usersMap.put(account.id, new JavaHashMap())
+		val userMap = usersMap.get(account.id)
+		userMap.put(key, value)
+	}
 
 	def ops : Seq[String] = opsList.asScala
 	def voices : Seq[String] = voicesList.asScala

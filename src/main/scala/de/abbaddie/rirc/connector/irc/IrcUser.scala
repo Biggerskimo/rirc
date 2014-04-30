@@ -160,7 +160,8 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case UnbanMessage(channel, sender, mask) =>
 			user.ds ! MSG_MODE(channel, sender, "-b", mask)
 
-		case ChannelCloseMessage(_) =>
+		case ChannelCloseMessage(_) |
+			ServiceRequest(_, _, _) =>
 
 		case InitDummy =>
 			user.ds = context.actorOf(Props(classOf[IrcUserDownstreamActor], user, user.channel), name = "ds")

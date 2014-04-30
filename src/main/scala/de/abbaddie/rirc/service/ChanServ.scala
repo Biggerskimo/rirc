@@ -11,6 +11,8 @@ import scala.Some
 import com.typesafe.config.Config
 import concurrent.duration._
 import de.abbaddie.rirc.main.Message._
+import scala.collection.JavaConverters._
+import scala.util.matching.Regex
 
 class ChanServ extends DefaultRircModule with RircAddon {
 	def init() {
@@ -19,13 +21,22 @@ class ChanServ extends DefaultRircModule with RircAddon {
 	}
 }
 
-class ChanServUser(config : Config) extends User {
+class ChanServUser(val config : Config) extends User {
 	def initActor(): ActorRef = Server.actorSystem.actorOf(Props(classOf[ChanServGeneralActor], this), name = "ChanServ")
 
 	val nickname = config.getString("nickname")
 	val username = config.getString("username")
 	val realname = config.getString("realname")
 	val hostname = config.getString("hostname")
+	
+	var replaces = List[(Regex, String)]()
+	
+	config.getConfigList("replace").asScala.foreach { tuple =>
+		val find = tuple.getString("find")
+		val replacement = tuple.getString("replacement")
+		val regex = find.r
+		replaces ::= (regex -> replacement)
+	}
 }
 
 class ChanServGeneralActor(val suser : User) extends Actor with Logging {
@@ -49,6 +60,13 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 					case Array("join", name) =>
 						val channel = Server.channels(name)
 						join(channel)
+					case Array(channelName, rest @ _*) if channelName.startsWith("#") =>
+						Server.channels get channelName match {
+							case Some(channel) =>
+								Server.events ! ServiceRequest(channel, user, rest.mkString(" "))
+							case None =>
+								Server.events ! PrivateNoticeMessage(suser, user, "Der Channel existiert nicht!")
+						}
 					case _ =>
 						Server.events ! PrivateNoticeMessage(suser, user, "Geh bügeln!")
 				}
@@ -89,7 +107,7 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 	}
 }
 
-class ChanServChannelActor(val suser : User, val channel : Channel) extends Actor with Logging {
+class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) extends Actor with Logging {
 	def receive = {
 		case AuthSuccess(user, acc) if channel.users contains user =>
 			checkUser(user, Some(acc))
@@ -111,7 +129,10 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 			Server.events ! JoinMessage(channel, user)
 
 		case PublicTextMessage(_, user, message) if message.startsWith("!") =>
-			 processServiceRequest(user)(message.substring(1).split(" "))
+			processServiceRequest(user, message.tail)
+			
+		case ServiceRequest(_, user, message) =>
+			processServiceRequest(user, message)
 
 		case ConnectMessage(_) |
 			 QuitMessage(_, _) |
@@ -125,6 +146,14 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 
 		case message =>
 			error("Dropped message in ChanServChannelActor: " + message + ", sent by " + context.sender)
+	}
+	
+	def processServiceRequest(user : User, str: String) {
+		val newStr = suser.replaces.foldLeft(str) {
+			case (string, (regex, replacement)) =>
+				regex.replaceAllIn(string, replacement)
+		}
+		processServiceRequest(user)(newStr.split(" "))
 	}
 
 	def processServiceRequest(user : User) : PartialFunction[Array[String], Unit] = {
@@ -257,6 +286,14 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 				privilegeChange(user, user.nickname, OP, UNSET)
 				privilegeChange(user, user.nickname, VOICE, UNSET)
 			}
+			
+		case Array("uset", "info", rest @ _*) =>
+			user.authacc match {
+				case Some(authacc) =>
+					setUserSetting(authacc, "info", rest.mkString(" "))
+				case None =>
+					Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht angemeldet.")
+			}
 
 		case arr =>
 			error(s"illegal service request from $user: !" + arr.mkString(" "))
@@ -385,5 +422,11 @@ class ChanServChannelActor(val suser : User, val channel : Channel) extends Acto
 			case (user, info) =>
 				setNone(user, info)
 		}
+	}
+	
+	def setUserSetting(authacc : AuthAccount, key : String, value : String) {
+		val desc = Server.channelProvider.registeredChannels(channel.name)
+		
+		desc.setUserSetting(authacc, key, value)
 	}
 }

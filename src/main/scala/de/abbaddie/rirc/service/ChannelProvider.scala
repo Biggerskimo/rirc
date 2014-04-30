@@ -21,6 +21,9 @@ trait ChannelDescriptor {
 	def getAdditional(key : String) : Option[String]
 	def setAdditional(key : String, value : String)
 
+	def getUserSetting(account : AuthAccount, key : String) : Option[String]
+	def setUserSetting(account : AuthAccount, key : String, value : String)
+
 	def setOwner(owner : String)
 	def addOp(op : String)
 	def addVoice(voice : String)
