@@ -404,6 +404,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 		case IrcIncomingLine("LOGIN", name, password) =>
 			if(user.authacc.isDefined) user.ds ! SVC_AUTHFAILURE("Du bist bereits eingeloggt.")
 			else Server.events ! AuthStart(user, name, password)
+			
+		case IrcIncomingLine("SETPASSWORD", name, password) =>
+			if(!user.isOper) user.ds ! SVC_AUTHFAILURE("Dafür benötigst du Oper-Rechte.")
+			else Server.authProvider.setPassword(name, password)
 
 		case IrcIncomingLine("INVITE", uname, cname) =>
 			(Server.users get uname, Server.channels get cname) match {

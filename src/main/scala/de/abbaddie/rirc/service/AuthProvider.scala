@@ -7,6 +7,8 @@ trait AuthProvider extends RircModule {
 	def init()
 
 	def register(name : String, password : String, mail : String) : Future[_]
+	
+	def setPassword(name : String, password : String) : Future[String]
 
 	def isValid(name : String, password : String) : Future[_]
 
