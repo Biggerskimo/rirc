@@ -11,8 +11,9 @@ import scala.collection.JavaConverters._
 import collection.immutable.HashMap
 import org.mindrot.jbcrypt.BCrypt
 import de.abbaddie.rirc.BackupFileProvider
+import grizzled.slf4j.Logging
 
-class YamlFileAuthProvider extends DefaultRircModule with AuthProvider with BackupFileProvider {
+class YamlFileAuthProvider extends DefaultRircModule with AuthProvider with BackupFileProvider with Logging {
 	val yaml = new Yaml(new Constructor(classOf[YamlAuthAccount]))
 	var accounts : Map[String, YamlAuthAccount] = HashMap()
 	val dumperOptions = new DumperOptions
@@ -57,10 +58,12 @@ class YamlFileAuthProvider extends DefaultRircModule with AuthProvider with Back
 	}
 
 	protected def load() {
-		yaml.loadAll(new FileReader(getFile())).asScala foreach {
-			case acc : YamlAuthAccount =>
-				accounts += (acc.name -> acc)
-			case _ =>
+		val java = yaml.loadAll(new FileReader(getFile(write = false)))
+		for(data <- java.asScala) {
+			data match {
+				case acc : YamlAuthAccount =>
+					accounts += (acc.name -> acc)
+			}
 		}
 	}
 

@@ -28,7 +28,7 @@ class YamlFileChannelProvider extends DefaultRircModule with ChannelProvider wit
 			ychannel.name = channel.name
 			ychannel.owner = owner.id
 			ychannel.oper = oper.id
-			ychannel.registration = DateTime.now
+			ychannel.registration = DateTime.now.toString("dd.MM.yyyy HH:mm:ss.SSS")
 			channels += (channel.name -> ychannel)
 		}
 	}
@@ -36,12 +36,14 @@ class YamlFileChannelProvider extends DefaultRircModule with ChannelProvider wit
 	def registeredChannels = channels
 
 	protected def load() {
-		val file = getFile()
-		if(!file.exists()) file.createNewFile()
-		yaml.loadAll(new FileReader(file)).asScala foreach {
-			case chan : YamlChannel =>
-				channels += (chan.name -> chan)
-			case _ =>
+		val java = yaml.loadAll(new FileReader(getFile(write = false)))
+		
+		for(data <- java.asScala) {
+			data match {
+				case chan : YamlChannel =>
+					channels += (chan.name -> chan)
+				case _ =>
+			}
 		}
 	}
 
@@ -62,7 +64,7 @@ class YamlChannel extends ChannelDescriptor {
 	@BeanProperty
 	var name : String = null
 	@BeanProperty
-	var registration : DateTime = null
+	var registration : String = null
 	@BeanProperty
 	var oper : String = null
 	@BeanProperty
