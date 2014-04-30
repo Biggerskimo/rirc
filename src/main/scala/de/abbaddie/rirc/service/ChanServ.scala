@@ -302,6 +302,9 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 						Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht angemeldet.")
 				}
 			}
+			
+		case Array("help", _*) =>
+			Server.events ! PrivateNoticeMessage(suser, user, "Siehe <https://biggerskimo.github.io/rirc/>")
 
 		case arr =>
 			error(s"illegal service request from $user: !" + arr.mkString(" "))
