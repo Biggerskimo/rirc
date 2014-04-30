@@ -31,6 +31,18 @@ case class Channel(name : String) extends GenericTarget {
 		case _ => false
 	}
 }
+object Channel {
+	def getOrCreate(name : String, user : User) = synchronized {
+		Server.channels get name match {
+			case Some(channel2) =>
+				channel2
+			case None =>
+				val channel = new Channel(name)
+				Server.eventBus.publish(ChannelCreationMessage(channel, user))
+				channel
+		}
+	}
+}
 class ChannelActor(val channel : Channel) extends Actor with Logging {
 	def receive = {
 		case JoinMessage(_, user) =>

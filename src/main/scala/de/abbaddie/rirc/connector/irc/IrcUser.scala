@@ -120,7 +120,7 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			val char = if(priv == OP) "o" else "v"
 			user.ds ! MSG_MODE(channel, sender, flag + char, target.nickname)
 
-		case AuthSuccess(_, account) =>
+		case AuthSuccess(authed, account) if authed == user =>
 			user.ds ! SVC_AUTHSUCCESS()
 			user.authacc = Some(account)
 			user.isOper = account.isOper
@@ -249,15 +249,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				if(!name.startsWith("#"))
 					user.ds ! ERR_NOSUCHCHANNEL(name)
 				else {
-					var channel : Channel = null
-
-					Server.channels get name match {
-						case Some(channel2) =>
-							channel = channel2
-						case None =>
-							channel = new Channel(name)
-							Server.eventBus.publish(ChannelCreationMessage(channel, user))
-					}
+					val channel = Channel.getOrCreate(name, user)
 
 					if(!UserUtil.checkInviteOnly(channel, user)) {
 						user.ds ! ERR_INVITEONLYCHAN(channel)
