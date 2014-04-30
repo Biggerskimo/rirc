@@ -108,9 +108,11 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 }
 
 class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) extends Actor with Logging {
+	implicit val desc = Server.channelProvider.registeredChannels(channel.name)
+
 	def receive = {
 		case AuthSuccess(user, acc) if channel.users contains user =>
-			checkUser(user, Some(acc))
+			checkUser(user, Some(acc), channel.users(user), join = false, force = false)
 
 		case JoinMessage(_, user) if user == suser =>
 			resync()
@@ -118,7 +120,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 		case JoinMessage(_, user) =>
 			// delay check, some irc clients wouldnt show @/+ without this delay
 			context.system.scheduler.scheduleOnce(1 second) {
-				checkUser(user)
+				checkUser(user, join = true, force = false)
 			}
 
 		case PartMessage(_, user, _) if user == suser =>
@@ -182,14 +184,9 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			}
 
 		case Array("users") =>
-			Server.channelProvider.registeredChannels get channel.name match {
-				case Some(desc) =>
-					Server.events ! PrivateNoticeMessage(suser, user, "Owner: " + desc.owner)
-					Server.events ! PrivateNoticeMessage(suser, user, "Ops: " + desc.ops.mkString(" "))
-					Server.events ! PrivateNoticeMessage(suser, user, "Voices: " + desc.voices.mkString(" "))
-				case None =>
-					Server.events ! PrivateNoticeMessage(suser, user, "Der Channel ist nicht registriert!")
-			}
+			Server.events ! PrivateNoticeMessage(suser, user, "Owner: " + desc.owner)
+			Server.events ! PrivateNoticeMessage(suser, user, "Ops: " + desc.ops.mkString(" "))
+			Server.events ! PrivateNoticeMessage(suser, user, "Voices: " + desc.voices.mkString(" "))
 
 		case Array("addop", name) =>
 			userChange(user, name, desc => desc.addOp , "Der User wurde zur Op-Liste hinzugefügt.")
@@ -229,12 +226,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			if(!checkOp(user))
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 			else {
-				Server.channelProvider.registeredChannels.get(channel.name) match {
-					case Some(desc) =>
-						desc.setAdditional("topicmask", rest.mkString(" "))
-					case None =>
-						Server.events ! PrivateNoticeMessage(suser, user, "Der Channel ist nicht registriert!")
-				}
+				desc.setAdditional("topicmask", rest.mkString(" "))
 			}
 
 		case Array("topic", rest @_*) =>
@@ -242,15 +234,13 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 			else {
 				val topicInner = rest.mkString(" ")
-				Server.channelProvider.registeredChannels.get(channel.name) match {
-					case Some(desc) if desc.getAdditional("topicmask").isDefined =>
-						val topicMask = desc.getAdditional("topicmask").get
-						val topic = topicMask.replace("*", topicInner)
-						Server.events ! TopicChangeMessage(channel, user, channel.topic, topic)
-					case Some(desc) =>
-						Server.events ! TopicChangeMessage(channel, user, channel.topic, topicInner)
-					case None =>
-						Server.events ! PrivateNoticeMessage(suser, user, "Der Channel ist nicht registriert!")
+				if(!desc.getAdditional("topicmask").isDefined) {
+					val topicMask = desc.getAdditional("topicmask").get
+					val topic = topicMask.replace("*", topicInner)
+					Server.events ! TopicChangeMessage(channel, user, channel.topic, topic)
+				}
+				else {
+					Server.events ! TopicChangeMessage(channel, user, channel.topic, topicInner)
 				}
 			}
 
@@ -279,7 +269,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			names.foreach(privilegeChange(user, _, VOICE, UNSET))
 
 		case Array("up") =>
-			checkUser(user)
+			checkUser(user, join = false, force = true)
 
 		case Array("down") =>
 			if(checkOp(user)) {
@@ -287,12 +277,18 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 				privilegeChange(user, user.nickname, VOICE, UNSET)
 			}
 			
-		case Array("uset", "info", rest @ _*) =>
-			user.authacc match {
-				case Some(authacc) =>
-					setUserSetting(authacc, "info", rest.mkString(" "))
-				case None =>
-					Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht angemeldet.")
+		case Array("uset", setting, rest @ _*) =>
+			val settings = List("info", "noautoop")
+			if(!settings.contains(setting)) {
+				Server.events ! PrivateNoticeMessage(suser, user, "Das ist keine gültige Einstellung.")
+			}
+			else {
+				user.authacc match {
+					case Some(authacc) =>
+						setUserSetting(authacc, setting, rest.mkString(" "))
+					case None =>
+						Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht angemeldet.")
+				}
 			}
 
 		case arr =>
@@ -316,15 +312,13 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 		if(!checkOp(user))
 			Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 		else {
-			(Server.channelProvider.registeredChannels get channel.name, resolveAccount(name)) match {
-				case (Some(desc), Some(account)) =>
+			resolveAccount(name) match {
+				case Some(account) =>
 					todo(desc)(account.id)
-					checkUser(user)
+					checkUser(user, join = false, force = false)
 					Server.events ! PrivateNoticeMessage(suser, user, message)
-				case (Some(desc), None) =>
+				case None =>
 					Server.events ! PrivateNoticeMessage(suser, user, "Der Account zu " + name + " wurde nicht gefunden.")
-				case (None, _) =>
-					Server.events ! PrivateNoticeMessage(suser, user, "Der Channel ist nicht registriert!")
 			}
 		}
 	}
@@ -353,15 +347,13 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 
 	def resync() {
 		if(channel.isRegistered) {
-			implicit val desc = Server.channelProvider.registeredChannels(channel.name)
-
 			// presence of Service
 			if(!channel.users.contains(suser)) {
 				Server.events ! JoinMessage(channel, suser)
 			}
 
 			// iterate users
-			channel.users foreach {case (user, info) => checkUserPart(user, info) }
+			channel.users foreach {case (user, info) => checkUser(user, info, join = false, force = false) }
 		}
 		if(!channel.users.contains(suser) || !channel.users(suser).isOp) {
 			Server.events ! PrivilegeChangeMessage(channel, suser, suser, OP, SET)
@@ -387,46 +379,49 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			Server.events ! PrivilegeChangeMessage(channel, suser, user, VOICE, UNSET)
 	}
 
-	def checkUser(user : User) {
-		Server.channelProvider.registeredChannels get channel.name match {
-			case Some(desc) =>
-				checkUserPart(user, channel.users(user))(desc)
-			case _ =>
-		}
+	def checkUser(user : User, join : Boolean, force : Boolean) {
+		checkUser(user, channel.users(user), join, force)
 	}
 
-	def checkUser(user : User, acc : Option[AuthAccount]) {
-		Server.channelProvider.registeredChannels get channel.name match {
-			case Some(desc) =>
-				checkUserPart(user, acc, channel.users(user))(desc)
-			case _ =>
-		}
+	def checkUser(user2 : User, info2 : ChannelUserInformation, join : Boolean, force : Boolean) {
+		checkUser(user2, user2.authacc, info2, join, force)
 	}
 
-	def checkUserPart(user2 : User, info2 : ChannelUserInformation)(implicit desc : ChannelDescriptor) {
-		checkUserPart(user2, user2.authacc, info2)(desc)
-	}
-
-	def checkUserPart(user2 : User, acc : Option[AuthAccount], info2 : ChannelUserInformation)(implicit desc : ChannelDescriptor) {
-		(user2, info2) match {
-			case (user, info) if user == suser =>
+	def checkUser(user2 : User, accOpt : Option[AuthAccount], info2 : ChannelUserInformation, join : Boolean, force : Boolean) {
+		(user2, info2, accOpt) match {
+			case (user, info, _) if user == suser =>
 				setOp(user, info)
-			case (user, info) if acc.isEmpty =>
+			case (user, info, None) =>
 				setNone(user, info)
-			case (user, info) if desc.owner == acc.get.id =>
+			case (user, info, Some(acc)) if !force && getUserSetting(acc, "noautoop").getOrElse("0") == "1" =>
+				// ignore
+			case (user, info, Some(acc)) if desc.owner == acc.id =>
 				setOp(user, info)
-			case (user, info) if desc.ops contains acc.get.id =>
+			case (user, info, Some(acc)) if desc.ops contains acc.id =>
 				setOp(user, info)
-			case (user, info) if desc.voices contains acc.get.id =>
+			case (user, info, Some(acc)) if desc.voices contains acc.id =>
 				setVoice(user, info)
-			case (user, info) =>
+			case (user, info, _) =>
 				setNone(user, info)
 		}
+		if(join) {
+			accOpt match {
+				case Some(acc) =>
+					getUserSetting(acc, "info") match {
+						case Some(text) =>
+							Server.events ! PublicTextMessage(channel, suser, s"[${user2.nickname}] $text")
+						case None =>
+					}
+				case None =>
+			}
+		}
+	}
+
+	def getUserSetting(authacc : AuthAccount, key : String) = {
+		desc.getUserSetting(authacc, key)
 	}
 	
 	def setUserSetting(authacc : AuthAccount, key : String, value : String) {
-		val desc = Server.channelProvider.registeredChannels(channel.name)
-		
 		desc.setUserSetting(authacc, key, value)
 	}
 }
