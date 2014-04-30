@@ -35,6 +35,8 @@ class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 
 					ch.pipeline().addLast(new IrcStringCodec(config.getStringList("charsets").asScala))
 
+					ch.pipeline().addLast(new IrcLineRewriter(config))
+					
 					ch.pipeline().addLast(new IrcLineDecoder())
 					ch.pipeline().addLast(new IrcLineEncoder())
 
