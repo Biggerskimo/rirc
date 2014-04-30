@@ -42,6 +42,7 @@ class ChanServUser(val config : Config) extends User {
 class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 	override def preStart() {
 		startup()
+		Server.eventBus.subscribeServer(self)
 	}
 
 	def receive = {
@@ -71,9 +72,20 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 						Server.events ! PrivateNoticeMessage(suser, user, "Geh bügeln!")
 				}
 			}
+			
+		case AuthSuccess(user, account) =>
+			Server.channelProvider.registeredChannels.values.foreach { case desc =>
+				val setting = desc.getUserSetting(account, "autoinvite").getOrElse("0")
+				if(setting == "1") {
+					Server.events ! InvitationMessage(Server.channels(desc.name), suser, user)
+				}
+			}
 
 		case ConnectMessage(_) |
-			 JoinMessage(_, _) =>
+			 JoinMessage(_, _) |
+			 NickchangeMessage(_, _, _) |
+			 QuitMessage(_, _) |
+			 RegistrationSuccess(_, _) =>
 			// ignore
 
 		case message =>
@@ -278,7 +290,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			}
 			
 		case Array("uset", setting, rest @ _*) =>
-			val settings = List("info", "noautoop")
+			val settings = List("autoinvite", "info", "noautoop")
 			if(!settings.contains(setting)) {
 				Server.events ! PrivateNoticeMessage(suser, user, "Das ist keine gültige Einstellung.")
 			}

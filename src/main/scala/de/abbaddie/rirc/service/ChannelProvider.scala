@@ -11,6 +11,7 @@ trait ChannelProvider extends RircModule {
 }
 
 trait ChannelDescriptor {
+	def name : String
 	def owner : String
 	def oper : String
 	def ops : Seq[String]
