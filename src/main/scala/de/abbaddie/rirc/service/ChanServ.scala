@@ -120,7 +120,7 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 }
 
 class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) extends Actor with Logging {
-	implicit val desc = Server.channelProvider.registeredChannels(channel.name)
+	implicit def desc = Server.channelProvider.registeredChannels(channel.name)
 
 	def receive = {
 		case AuthSuccess(user, acc) if channel.users contains user =>
@@ -167,7 +167,12 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			case (string, (regex, replacement)) =>
 				regex.replaceAllIn(string, replacement)
 		}
-		processServiceRequest(user)(newStr.split(" "))
+		if(!Server.channelProvider.registeredChannels.contains(channel.name) && !newStr.startsWith("register")) {
+			Server.events ! PrivateNoticeMessage(suser, user, "Der Kanal ist nicht registriert!")
+		}
+		else {
+			processServiceRequest(user)(newStr.split(" "))
+		}
 	}
 
 	def processServiceRequest(user : User) : PartialFunction[Array[String], Unit] = {
