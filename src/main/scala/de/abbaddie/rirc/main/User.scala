@@ -27,6 +27,7 @@ abstract class User extends GenericTarget {
 	var isOper = false
 	val uid = IdGenerator("user")
 	val actor = initActor()
+	val signOn : DateTime = DateTime.now
 	var lastActivity : DateTime = DateTime.now
 
 	Server.events.subscribe(actor, UserClassifier(this))
