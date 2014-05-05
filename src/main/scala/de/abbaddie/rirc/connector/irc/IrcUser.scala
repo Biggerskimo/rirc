@@ -146,7 +146,7 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case ChannelModeChangeMessage(channel, sender, PROTECTION(None)) =>
 			user.ds ! MSG_MODE(channel, sender, "-k")
 
-		case InvitationMessage(channel, inviter, _) =>
+		case InvitationMessage(channel, inviter, invited) if invited == user =>
 			user.ds ! MSG_INVITE(channel, inviter)
 
 		case KickMessage(channel, kicker, kicked) =>
@@ -163,7 +163,8 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case ChannelCloseMessage(_) |
 			ServiceRequest(_, _, _) |
 			AuthSuccess(_, _) |
-			RegistrationSuccess(_, _) =>
+			RegistrationSuccess(_, _) |
+			InvitationMessage(_, _, _) =>
 
 		case InitDummy =>
 			user.ds = context.actorOf(Props(classOf[IrcUserDownstreamActor], user, user.channel), name = "ds")
@@ -254,10 +255,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				else {
 					val channel = Channel.getOrCreate(name, user)
 
-					if(!UserUtil.checkInviteOnly(channel, user)) {
+					if(!UserUtil.checkInviteOnly(channel, user) && !channel.invited.contains(user)) {
 						user.ds ! ERR_INVITEONLYCHAN(channel)
 					}
-					else if(!UserUtil.checkPasswordProtection(channel, user, passwd)) {
+					else if(!UserUtil.checkPasswordProtection(channel, user, passwd) && !channel.invited.contains(user)) {
 						user.ds ! ERR_BADCHANNELKEY(channel)
 					}
 					else if(!UserUtil.checkBanned(channel, user)) {

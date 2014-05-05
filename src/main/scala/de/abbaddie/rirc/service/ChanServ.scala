@@ -87,7 +87,8 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 			 QuitMessage(_, _) |
 			 RegistrationSuccess(_, _) |
 			 ChannelCreationMessage(_, _) |
-			 ChannelCloseMessage(_) =>
+			 ChannelCloseMessage(_) |
+			 InvitationMessage(_, _, _) =>
 			// ignore
 
 		case message =>

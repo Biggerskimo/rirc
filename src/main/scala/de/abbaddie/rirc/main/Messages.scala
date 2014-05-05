@@ -56,7 +56,7 @@ object Message {
 
 	case class ConnectMessage(user : User) extends Message with UserMessage with ServerMessage
 
-	case class InvitationMessage(channel : Channel, invitar : User, invited : User) extends Message with UserMessage {
+	case class InvitationMessage(channel : Channel, invitar : User, invited : User) extends Message with ChannelMessage with UserMessage {
 		def user = invited
 	}
 
