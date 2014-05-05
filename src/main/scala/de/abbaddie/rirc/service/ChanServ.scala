@@ -143,7 +143,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			Server.events.unsubscribe(self, ChannelClassifier(channel))
 			context.stop(self)
 
-		case KickMessage(_, _, user) if user == suser =>
+		case KickMessage(_, _, user, _) if user == suser =>
 			Server.events ! JoinMessage(channel, user)
 
 		case PublicTextMessage(_, user, message) if message.startsWith("!") =>
@@ -154,7 +154,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 
 		case ConnectMessage(_) |
 			 QuitMessage(_, _) |
-			 KickMessage(_, _, _) |
+			 KickMessage(_, _, _, _) |
 			 BanMessage(_, _, _) |
 			 PartMessage(_, _, _) |
 			 NickchangeMessage(_, _, _) |
@@ -293,9 +293,22 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 		case Array("up") =>
 			checkUser(user, join = false, force = true)
 			
-		case Array("kick") =>
-			if(checkOp(user)) {
-				Server.events ! KickMessage(channel, suser, user)
+		case Array("kick", name, rest @ _*) =>
+			val kickedOpt = Server.users.get(name)
+			
+			if(!checkOp(user)) {
+				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt, um andere User zu kicken.")
+			}
+			else {
+				kickedOpt match {
+					case Some(kicked) if channel.users contains user =>
+						if(rest.isEmpty) Server.events ! KickMessage(channel, suser, kicked, Some(user.nickname))
+						else Server.events ! KickMessage(channel, suser, kicked, Some(user.nickname + ": " + rest.mkString(" ")))
+					case Some(kicked) =>
+						Server.events ! PrivateNoticeMessage(suser, user, s"Der Benutzer $name ist nicht in ${channel.name}")
+					case _ =>
+						Server.events ! PrivateNoticeMessage(suser, user, s"Der Benutzer $name wurde auf dem Server nicht gefunden.")
+				}
 			}
 
 		case Array("down") =>

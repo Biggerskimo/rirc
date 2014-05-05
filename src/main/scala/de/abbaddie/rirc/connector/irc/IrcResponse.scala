@@ -252,7 +252,7 @@ object IrcResponse {
 
 	case class MSG_INVITE(channel : Channel, user : User) extends IrcClientResponse(user, "INVITE", user.nickname, channel.name)
 
-	case class MSG_KICK(channel : Channel, kicker : User, kicked : User) extends IrcClientResponse(kicker, "KICK", channel.name, kicked.nickname)
+	case class MSG_KICK(channel : Channel, kicker : User, kicked : User, reason : Option[String]) extends IrcClientResponse(kicker, "KICK", channel.name +: kicked.nickname +: reason.toSeq :_*)
 
 	/** SERVICE **/
 	abstract class IrcServiceResponse(message : String) extends IrcResponse {

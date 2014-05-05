@@ -62,7 +62,7 @@ object Message {
 
 	case class JoinMessage(channel : Channel, user : User) extends Message with ChannelMessage with UserMessage
 
-	case class KickMessage(channel : Channel, kicker : User, kicked : User) extends Message with ChannelMessage with UserMessage {
+	case class KickMessage(channel : Channel, kicker : User, kicked : User, reason : Option[String]) extends Message with ChannelMessage with UserMessage {
 		def user = kicked
 	}
 

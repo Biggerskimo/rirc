@@ -149,10 +149,10 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case InvitationMessage(channel, inviter, invited) if invited == user =>
 			user.ds ! MSG_INVITE(channel, inviter)
 
-		case KickMessage(channel, kicker, kicked) =>
+		case KickMessage(channel, kicker, kicked, reason) =>
 			if(user == kicked)
 				Server.eventBus.unsubscribe(self, ChannelClassifier(channel))
-			user.ds ! MSG_KICK(channel, kicker, kicked)
+			user.ds ! MSG_KICK(channel, kicker, kicked, reason)
 
 		case BanMessage(channel, sender, mask) =>
 			user.ds ! MSG_MODE(channel, sender, "+b", mask)
@@ -443,8 +443,10 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					user.ds ! ERR_NOSUCHNICK(kicked.nickname)
 				case (Some(channel), Some(kicked)) if !UserUtil.checkOp(channel, user) =>
 					user.ds ! ERR_CHANOPRIVSNEEDED(channel)
+				case (Some(channel), Some(kicked)) if !rest.isEmpty =>
+					Server.events ! KickMessage(channel, user, kicked, Some(rest.mkString(" ")))
 				case (Some(channel), Some(kicked)) =>
-					Server.events ! KickMessage(channel, user, kicked)
+					Server.events ! KickMessage(channel, user, kicked, None)
 				case (Some(_), None) =>
 					user.ds ! ERR_NOSUCHNICK(uname)
 				case (None, _) =>

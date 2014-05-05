@@ -82,7 +82,7 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 			channel.invited += invited
 			sender ! Dummy
 
-		case KickMessage(_, _, kicked) =>
+		case KickMessage(_, _, kicked, _) =>
 			rmUser(kicked)
 			sender ! Dummy
 
