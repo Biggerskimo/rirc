@@ -162,7 +162,8 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			 PublicTextMessage(_, _, _) |
 			 TopicChangeMessage(_, _, _, _) | 
 			 RegistrationSuccess(_, _) |
-			 ChannelModeChangeMessage(_, _, _) =>
+			 ChannelModeChangeMessage(_, _, _) |
+			 InvitationMessage(_, _, _) =>
 
 		case message =>
 			error("Dropped message in ChanServChannelActor: " + message + ", sent by " + context.sender)
