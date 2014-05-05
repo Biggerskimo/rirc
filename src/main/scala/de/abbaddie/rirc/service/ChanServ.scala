@@ -76,8 +76,9 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 		case AuthSuccess(user, account) =>
 			Server.channelProvider.registeredChannels.values.foreach { case desc =>
 				val setting = desc.getUserSetting(account, "autoinvite").getOrElse("0")
-				if(setting == "1") {
-					Server.events ! InvitationMessage(Server.channels(desc.name), suser, user)
+				val channel = Server.channels(desc.name)
+				if(setting == "1" && !channel.users.contains(user)) {
+					Server.events ! InvitationMessage(channel, suser, user)
 				}
 			}
 
