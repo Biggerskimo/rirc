@@ -349,6 +349,12 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 				}
 			}
 			
+		case Array("say", rest @ _*) =>
+			if(user.isOper) Server.events ! PublicTextMessage(channel, suser, rest.mkString(" "))
+			
+		case Array("emote", rest @ _*) =>
+			if(user.isOper) Server.events ! PublicTextMessage(channel, suser, rest.mkString("\01ACTION ", " ", "\01"))
+			
 		case Array("help", _*) =>
 			Server.events ! PrivateNoticeMessage(suser, user, "Siehe <https://biggerskimo.github.io/rirc/>")
 
