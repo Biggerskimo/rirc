@@ -19,10 +19,10 @@ class IrcOutgoingLine(val source : Option[String], val command : String, val col
 		}
 		str ++= command
 
-		if(params == null || params == None || params.length == 0) {}
+		if(params == null || params.length == 0) {}
 		else if(params.size == colonPos)
 			str ++= " :" + params(0)
-		else if(params.size > colonPos)
+		else if(params.size > colonPos && colonPos > 0)
 			str ++= params.slice(0, params.length - colonPos).mkString(" ", " ", "") + params.slice(params.length - colonPos, params.length).mkString(" :", " ", "")
 		else
 			str ++= " " + params.mkString(" ")

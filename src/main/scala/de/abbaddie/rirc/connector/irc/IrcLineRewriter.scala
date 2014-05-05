@@ -13,8 +13,8 @@ class IrcLineRewriter(val config : Config) extends MessageToMessageDecoder[Strin
 	config.getConfigList("replace").asScala.foreach { tuple =>
 		val find = tuple.getString("find")
 		val replacement = tuple.getString("replacement")
-		val regex = find.r
-		replaces ::= (regex -> replacement)
+		val regex = ("(?i)" + find).r
+		replaces ::= (regex, replacement)
 	}
 	
 	def decode(ctx: ChannelHandlerContext, in : String, out : JList[Object]) {

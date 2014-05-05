@@ -11,13 +11,14 @@ abstract class IrcResponse {
 object IrcResponse {
 	/** SERVER **/
 	abstract class IrcServerResponse(val numeric : Int, val message : String, val before : String*) extends IrcResponse {
+		def colonPos = 1
 		def this(numeric: Int, message : String) = this(numeric, message, Nil: _*)
 		def this(numeric: Int) = this(numeric, null)
 
 		def toIrcOutgoingLine(user: IrcUser) = {
 			val params = List(user.nickname) ++ before :+ message
 
-			new IrcOutgoingLine(Some(IrcConstants.OUR_HOST), numericToString, params: _*)
+			new IrcOutgoingLine(Some(IrcConstants.OUR_HOST), numericToString, colonPos, params: _*)
 		}
 
 		def numericToString = {
@@ -31,7 +32,8 @@ object IrcResponse {
 	}
 
 	case class IrcSimpleResponse(command : String, params : String*) extends IrcResponse {
-		def toIrcOutgoingLine(user: IrcUser) = new IrcOutgoingLine(Some(IrcConstants.OUR_HOST), command, params : _*)
+		def colonPos = 1
+		def toIrcOutgoingLine(user: IrcUser) = new IrcOutgoingLine(Some(IrcConstants.OUR_HOST), command, colonPos, params : _*)
 	}
 
 	// http://tools.ietf.org/html/rfc2812#section-5.1
@@ -213,14 +215,17 @@ object IrcResponse {
 
 	/** CLIENT **/
 	abstract class IrcClientResponse(val source : User, val command : String, val params : String*) extends IrcResponse {
+		def colonPos = 1
 		def toIrcOutgoingLine(user: IrcUser) = {
-			new IrcOutgoingLine(Some(userSourceString(source)), command, params : _*)
+			new IrcOutgoingLine(Some(userSourceString(source)), command, colonPos, params : _*)
 		}
 
 		val userSourceString = (user : User) => user.fullString
 	}
 
-	case class MSG_JOIN(channel : Channel, user : User) extends IrcClientResponse(user, "JOIN", channel.name)
+	case class MSG_JOIN(channel : Channel, user : User) extends IrcClientResponse(user, "JOIN", channel.name) {
+		override def colonPos = 0
+	}
 
 	case class MSG_PRIVMSG(target : String, user : User, text : String) extends IrcClientResponse(user, "PRIVMSG", target, text) {
 		def this(channel : Channel, user : User, text : String) = this(channel.name, user, text)

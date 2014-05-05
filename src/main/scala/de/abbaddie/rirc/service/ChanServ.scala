@@ -85,7 +85,9 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 			 JoinMessage(_, _) |
 			 NickchangeMessage(_, _, _) |
 			 QuitMessage(_, _) |
-			 RegistrationSuccess(_, _) =>
+			 RegistrationSuccess(_, _) |
+			 ChannelCreationMessage(_, _) |
+			 ChannelCloseMessage(_) =>
 			// ignore
 
 		case message =>
@@ -156,18 +158,22 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			 NickchangeMessage(_, _, _) |
 			 PrivilegeChangeMessage(_, _, _, _, _) |
 			 PublicTextMessage(_, _, _) |
-			 TopicChangeMessage(_, _, _, _) =>
+			 TopicChangeMessage(_, _, _, _) | 
+			 RegistrationSuccess(_, _) |
+			 ChannelModeChangeMessage(_, _, _) =>
 
 		case message =>
 			error("Dropped message in ChanServChannelActor: " + message + ", sent by " + context.sender)
 	}
+	
+	def isManaged = Server.channelProvider.registeredChannels.contains(channel.name)
 	
 	def processServiceRequest(user : User, str: String) {
 		val newStr = suser.replaces.foldLeft(str) {
 			case (string, (regex, replacement)) =>
 				regex.replaceAllIn(string, replacement)
 		}
-		if(!Server.channelProvider.registeredChannels.contains(channel.name) && !newStr.startsWith("register")) {
+		if(!isManaged && !newStr.startsWith("register")) {
 			Server.events ! PrivateNoticeMessage(suser, user, "Der Kanal ist nicht registriert!")
 		}
 		else {
@@ -251,13 +257,10 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 			else {
 				val topicInner = rest.mkString(" ")
-				if(!desc.getAdditional("topicmask").isDefined) {
-					val topicMask = desc.getAdditional("topicmask").get
+				if(desc.getAdditional("topicmask").isDefined) {
+					val topicMask = desc.getAdditional("topicmask").getOrElse("*")
 					val topic = topicMask.replace("*", topicInner)
 					Server.events ! TopicChangeMessage(channel, user, channel.topic, topic)
-				}
-				else {
-					Server.events ! TopicChangeMessage(channel, user, channel.topic, topicInner)
 				}
 			}
 
@@ -287,6 +290,11 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 
 		case Array("up") =>
 			checkUser(user, join = false, force = true)
+			
+		case Array("kick") =>
+			if(checkOp(user)) {
+				Server.events ! KickMessage(channel, suser, user)
+			}
 
 		case Array("down") =>
 			if(checkOp(user)) {
@@ -408,6 +416,8 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 	}
 
 	def checkUser(user2 : User, accOpt : Option[AuthAccount], info2 : ChannelUserInformation, join : Boolean, force : Boolean) {
+		if(!isManaged) return
+		
 		(user2, info2, accOpt) match {
 			case (user, info, _) if user == suser =>
 				setOp(user, info)

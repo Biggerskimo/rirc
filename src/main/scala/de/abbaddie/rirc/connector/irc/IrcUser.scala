@@ -128,7 +128,7 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 		case AuthFailure(_, _, message) =>
 			user.ds ! SVC_AUTHFAILURE(message)
 
-		case RegistrationSuccess(_, account) =>
+		case RegistrationSuccess(registered, account) if registered == user =>
 			user.ds ! SVC_REGISTRATIONSUCCESS()
 			user.authacc = Some(account)
 			user.isOper = account.isOper
@@ -161,7 +161,9 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			user.ds ! MSG_MODE(channel, sender, "-b", mask)
 
 		case ChannelCloseMessage(_) |
-			ServiceRequest(_, _, _) =>
+			ServiceRequest(_, _, _) |
+			AuthSuccess(_, _) |
+			RegistrationSuccess(_, _) =>
 
 		case InitDummy =>
 			user.ds = context.actorOf(Props(classOf[IrcUserDownstreamActor], user, user.channel), name = "ds")
