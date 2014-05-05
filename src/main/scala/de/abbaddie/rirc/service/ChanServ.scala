@@ -331,6 +331,24 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 				}
 			}
 			
+		case Array("inviteme", name) =>
+			if(!user.authacc.isDefined) Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht eingeloggt.")
+			else {
+				val Some(acc) = user.authacc
+				(Server.channelProvider.registeredChannels get name, Server.channels get name) match {
+					case (_, Some(channel2)) if user.isOper =>
+						Server.events ! InvitationMessage(channel2, suser, user)
+					case (Some(desc), Some(channel2)) if desc.owner == acc.id || desc.ops.contains(acc.id) || desc.voices.contains(acc.id) =>
+						Server.events ! InvitationMessage(channel2, suser, user)
+					case (Some(desc), Some(channel2)) =>
+						Server.events ! PrivateNoticeMessage(suser, user, s"Du hast keine Rechte in $name.")
+					case (None, Some(channel2)) =>
+						Server.events ! PrivateNoticeMessage(suser, user, s"Der Kanal $name ist nicht registriert.")
+					case (_, None) =>
+						Server.events ! PrivateNoticeMessage(suser, user, s"Der Kanal $name ist nicht vorhanden.")
+				}
+			}
+			
 		case Array("help", _*) =>
 			Server.events ! PrivateNoticeMessage(suser, user, "Siehe <https://biggerskimo.github.io/rirc/>")
 
