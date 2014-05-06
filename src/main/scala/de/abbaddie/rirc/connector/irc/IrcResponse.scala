@@ -67,8 +67,10 @@ object IrcResponse {
 
 	case class RPL_WHOISUSER(user : User) extends IrcServerResponse(311, user.realname, user.nickname, user.username, user.hostname, "*")
 	case class RPL_WHOISSERVER(user : User) extends IrcServerResponse(312, IrcConstants.OUR_NAME, user.nickname, IrcConstants.OUR_HOST)
+	
+	case class RPL_ENDOFWHO(name : String) extends IrcServerResponse(315, "End of /WHO list", name)
 
-	case class RPL_WHOISIDLE(user : User) extends IrcServerResponse(317, "seconds idle, signon time", user.nickname, (((DateTime.now.getMillis - user.lastActivity.getMillis) / 1000).round).toString, (user.signOn.getMillis / 1000).toString) // TODO
+	case class RPL_WHOISIDLE(user : User) extends IrcServerResponse(317, "seconds idle, signon time", user.nickname, ((DateTime.now.getMillis - user.lastActivity.getMillis) / 1000).round.toString, (user.signOn.getMillis / 1000).toString) // TODO
 	case class RPL_ENDOFWHOIS(user : User) extends IrcServerResponse(318, "End of /WHOIS list")
 	case class RPL_WHOISCHANNELS(user : User) extends IrcServerResponse(319,
 		Server.channels
@@ -76,20 +78,23 @@ object IrcResponse {
 				.map({ e => (if(e._2.users(user).isOp) "@" else if(e._2.users(user).isVoice) "+" else "") + e._2.name })
 				.mkString(" "),
 		user.nickname)
-
-	case class RPL_ENDOFWHO(name : String) extends IrcServerResponse(315, "End of /WHO list", name)
-
-	case class RPL_CHANNELMODEIS(channel : Channel) /* sic */extends IrcResponse { // 324
-	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
-		new IrcOutgoingLine(
-			Some(IrcConstants.OUR_HOST),
-			"324",
-			0,
-			user.nickname,
-			channel.name,
-			getChanModes(channel)
-		)
+	
+	case class RPL_LISTSTART() extends IrcServerResponse(321, "Name", "Channel", "Users") {
+		override def colonPos = 2
 	}
+	case class RPL_LIST(channel : Channel) extends IrcServerResponse(322, channel.topic.getOrElse(""), channel.name, channel.users.size.toString)
+	case class RPL_LISTEND() extends IrcServerResponse(323, ":End of /LIST")
+	case class RPL_CHANNELMODEIS(channel : Channel) /* sic */extends IrcResponse { // 324
+		def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
+			new IrcOutgoingLine(
+				Some(IrcConstants.OUR_HOST),
+				"324",
+				0,
+				user.nickname,
+				channel.name,
+				getChanModes(channel)
+			)
+		}
 
 		def getChanModes(channel : Channel) = {
 			var additional : List[String] = Nil
@@ -106,16 +111,16 @@ object IrcResponse {
 	}
 
 	case class RPL_CREATIONTIME(channel : Channel) extends IrcResponse { // 329
-	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
-		new IrcOutgoingLine(
-			Some(IrcConstants.OUR_HOST),
-			"329",
-			0,
-			user.nickname,
-			channel.name,
-			(channel.creation.getMillis / 1000).toString
-		)
-	}
+		def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
+			new IrcOutgoingLine(
+				Some(IrcConstants.OUR_HOST),
+				"329",
+				0,
+				user.nickname,
+				channel.name,
+				(channel.creation.getMillis / 1000).toString
+			)
+		}
 	}
 
 	case class RPL_WHOISACCOUNT(user : User) extends IrcServerResponse(330, "is logged in as", user.nickname, user.authacc.get.name)

@@ -470,6 +470,14 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 				case None =>
 					user.ds ! RPL_ENDOFNAMES(name)
 			}
+			
+		case IrcIncomingLine("LIST", namesStr @ _*) =>
+			val names = namesStr.headOption.getOrElse("").split(",")
+			val channels = if(namesStr.isEmpty) Server.channels.values else Server.channels.values.filter(chan => names.contains(chan.name))
+			
+			user.ds ! RPL_LISTSTART()
+			channels.foreach(user.ds ! RPL_LIST(_))
+			user.ds ! RPL_LISTEND()
 
 		case IrcIncomingLine("MOTD") =>
 			IrcMotdHandler.send(user)
