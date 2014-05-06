@@ -283,7 +283,7 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					user.ds ! ERR_NOSUCHCHANNEL(name)
 			}
 
-		case IrcIncomingLine("MODE", name, "+b") =>
+		case IrcIncomingLine("MODE", name, rest) if rest == "b" || rest == "+b" =>
 			Server.channels get name match {
 				case Some(channel) if !channel.users.contains(user) =>
 					user.ds ! ERR_NOTONCHANNEL(channel)
@@ -304,6 +304,8 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					handleModeChange(channel, desc, rest)
 				case Some(user2 : User) if user != user2 =>
 					user.ds ! ERR_USERSDONTMATCH()
+				case Some(user2 : User) if desc == "+i" =>
+					user.ds ! RPL_UMODEIS("i")
 				case Some(user2 : User) =>
 					user.ds ! ERR_UMODEUNKNOWNFLAG()
 				case None =>
