@@ -125,6 +125,8 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 
 class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) extends Actor with Logging {
 	implicit def desc = Server.channelProvider.registeredChannels(channel.name)
+	val usettings = List("autoinvite", "info", "noautoop")
+	val settings = List("topicmask")
 
 	def receive = {
 		case AuthSuccess(user, acc) if channel.users contains user =>
@@ -248,11 +250,19 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 				Server.events ! PartMessage(channel, suser, None)
 			}
 
+		case Array("set") | Array("set", "topicmask") =>
+			if(!checkOp(user))
+				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+			else {
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " \02topicmask\02: " + desc.getAdditional("topicmask").getOrElse("*"))
+			}
+
 		case Array("set", "topicmask", rest @_*) =>
 			if(!checkOp(user))
 				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
 			else {
 				desc.setAdditional("topicmask", rest.mkString(" "))
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " \02topicmask\02: " + desc.getAdditional("topicmask").getOrElse("*"))
 			}
 
 		case Array("topic", rest @_*) =>
@@ -319,17 +329,27 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			}
 			
 		case Array("uset", setting, rest @ _*) =>
-			val settings = List("autoinvite", "info", "noautoop")
-			if(!settings.contains(setting)) {
+			if(!usettings.contains(setting)) {
 				Server.events ! PrivateNoticeMessage(suser, user, "Das ist keine gültige Einstellung.")
 			}
 			else {
 				user.authacc match {
+					case Some(authacc) if rest.isEmpty =>
+						showUserSetting(user, setting)
 					case Some(authacc) =>
 						setUserSetting(authacc, setting, rest.mkString(" "))
+						showUserSetting(user, setting)
 					case None =>
 						Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht angemeldet.")
 				}
+			}
+
+		case Array("uset") =>
+			user.authacc match {
+				case Some(authacc) =>
+					usettings.foreach(showUserSetting(user, _))
+				case None =>
+					Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht angemeldet.")
 			}
 			
 		case Array("inviteme", name) =>
@@ -493,5 +513,19 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 	
 	def setUserSetting(authacc : AuthAccount, key : String, value : String) {
 		desc.setUserSetting(authacc, key, value)
+	}
+	
+	def showUserSetting(user : User, key: String) {
+		user.authacc match {
+			case Some(authacc) =>
+				getUserSetting(authacc, key) match {
+					case Some(value) =>
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + " " + user.nickname + " \02" + key + "\02: " + value)
+					case None =>
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + " " + user.nickname + " \02" + key + "\02: \u001Dnot set\u001D")
+				}
+			case None =>
+				Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht eingeloggt.")
+		}
 	}
 }

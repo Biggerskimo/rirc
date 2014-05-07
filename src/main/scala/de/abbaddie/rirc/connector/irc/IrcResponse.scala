@@ -162,21 +162,21 @@ object IrcResponse {
 	}
 
 	case class RPL_NAMEREPLY(channel : Channel) extends IrcResponse { // 353
-	def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
-		val users = channel.users
-
-		var params : Seq[String] = users.map(e => (if(e._2.isOp) "@" else if(e._2.isVoice) "+" else "") + e._1.nickname).toSeq
-		params +:= channel.name
-		params +:= "="
-		params +:= user.nickname
-
-		new IrcOutgoingLine(
-			Some(IrcConstants.OUR_HOST),
-			"353",
-			users.size,
-			params: _*
-		)
-	}
+		def toIrcOutgoingLine(user: IrcUser): IrcOutgoingLine = {
+			val users = channel.users
+	
+			var params : Seq[String] = users.map(e => (if(e._2.isOp) "@" else if(e._2.isVoice) "+" else "") + e._1.nickname).toSeq
+			params +:= channel.name
+			params +:= "="
+			params +:= user.nickname
+	
+			new IrcOutgoingLine(
+				Some(IrcConstants.OUR_HOST),
+				"353",
+				users.size,
+				params: _*
+			)
+		}
 	}
 
 	case class RPL_ENDOFNAMES(name : String) extends IrcServerResponse(366, "End of /NAMES list", name)
