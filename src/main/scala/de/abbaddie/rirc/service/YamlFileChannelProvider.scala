@@ -13,6 +13,7 @@ import java.util.{List => JavaList}
 import java.util.{ArrayList => JavaArrayList}
 import java.util.{Map => JavaMap, HashMap => JavaHashMap}
 import de.abbaddie.rirc.BackupFileProvider
+import java.nio.charset.Charset
 
 class YamlFileChannelProvider extends DefaultRircModule with ChannelProvider with BackupFileProvider {
 	val yaml = new Yaml(new Constructor(classOf[YamlChannel]))
@@ -76,11 +77,22 @@ class YamlChannel extends ChannelDescriptor {
 	@BeanProperty
 	var banList : JavaList[YamlBan] = new JavaArrayList()
 	@BeanProperty
-	var additionalMap : JavaMap[String, String] = new JavaHashMap()
+	var additionalMap : JavaMap[String, AnyRef] = new JavaHashMap()
 	@BeanProperty
 	var usersMap : JavaMap[String, JavaMap[String, String]] = new JavaHashMap()
 
-	def getAdditional(key : String) = if(additionalMap.containsKey(key)) Some(additionalMap.get(key)) else None
+	def getAdditional(key : String) = {
+		additionalMap.asScala get key match {
+			case Some(value : Array[Byte]) => // yeah, snakeyaml fucks this up for binary strings
+				Some(new String(value, Charset.forName("UTF-8")))
+			case Some(value : String) =>
+				Some(value)
+			case Some(value) =>
+				Some(String.valueOf(value))
+			case None =>
+				None
+		}
+	}
 	def setAdditional(key : String, value : String) = additionalMap.put(key, value)
 	
 	def getUserSetting(account : AuthAccount, key : String) = {
