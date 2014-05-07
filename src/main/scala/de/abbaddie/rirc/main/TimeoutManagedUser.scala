@@ -34,7 +34,7 @@ class TimeoutManagedUserPingActor(val user : TimeoutManagedUser) extends Actor w
 		case Tick if user.lastActivity < DateTime.now - IrcConstants.TIMEOUT.toMillis =>
 			user.dies = DateTime.now + IrcConstants.TIMEOUT.toMillis
 			user.dying = true
-			info("pinging " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
+			debug("pinging " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
 			user.sendPing()
 	}
 }
