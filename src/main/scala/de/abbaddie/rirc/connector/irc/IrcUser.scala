@@ -264,6 +264,9 @@ class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
 					else if(!UserUtil.checkBanned(channel, user)) {
 						user.ds ! ERR_BANNEDFROMCHAN(channel)
 					}
+					else if(channel.users.contains(user)) {
+						// discard
+					}
 					else {
 						Server.events ! JoinMessage(channel, user)
 					}
