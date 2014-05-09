@@ -199,7 +199,7 @@ class IrcUserUpstreamThrottleActor(val user : IrcUser) extends Actor with Loggin
 		case line : IrcIncomingLine if queue.size < 20 =>
 			queue += line
 		case line : IrcIncomingLine =>
-			user.killImmidiately("HUPPS")
+			user.killImmidiately("Flood protection")
 		case _ =>
 		// ignore
 	}
