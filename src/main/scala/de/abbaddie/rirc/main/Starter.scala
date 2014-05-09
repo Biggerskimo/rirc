@@ -93,6 +93,7 @@ object Starter {
 			val module = Class.forName(moduleConfig.getString("class")).newInstance().asInstanceOf[Connector]
 			module.config = moduleConfig
 			module.start()
+			Server.connectors ::= module
 			logger.info("Connector: " + moduleConfig.getString("class") + " started")
 		}
 

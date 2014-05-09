@@ -24,6 +24,7 @@ class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) exten
 
 	var ds : ActorRef = null
 	var us : ActorRef = null
+	var us2 : ActorRef = null
 
 	override def isSystemUser = false
 
@@ -102,6 +103,7 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 			user.ds ! PoisonPill
 			user.us ! PoisonPill
 			user.pinger ! PoisonPill
+			IrcQueueHandler.rm(user)
 			Server.eventBus.unsubscribe(self)
 
 		case QuitMessage(sender, message) =>
@@ -168,7 +170,8 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 
 		case InitDummy =>
 			user.ds = context.actorOf(Props(classOf[IrcUserDownstreamActor], user, user.channel), name = "ds")
-			user.us = context.actorOf(Props(classOf[IrcUserUpstreamActor], user), name = "us")
+			user.us = context.actorOf(Props(classOf[IrcUserUpstreamThrottleActor], user), name = "us")
+			user.us2 = context.actorOf(Props(classOf[IrcUserUpstreamHandleActor], user), name = "us2")
 			sender ! InitDummy
 
 		case message : Any =>
@@ -176,7 +179,33 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 	}
 }
 
-class IrcUserUpstreamActor(val user : IrcUser) extends Actor with Logging {
+class IrcUserUpstreamThrottleActor(val user : IrcUser) extends Actor with Logging {
+	var queue = mutable.Queue[IrcIncomingLine]()
+	
+	def receive = {
+		case error : IrcChannelError =>
+			user.us2 ! error
+		case _ if user.isDead =>
+			// drop
+		case line : IrcIncomingLine if !Server.isQueueFull && queue.isEmpty =>
+			user.us2 ! line
+		case line : IrcIncomingLine if !Server.isQueueFull && queue.size == 1 =>
+			user.us2 ! queue.dequeue()
+			user.us2 ! line
+		case line : IrcIncomingLine if !Server.isQueueFull && queue.size >= 2 =>
+			user.us2 ! queue.dequeue()
+			user.us2 ! queue.dequeue()
+			queue += line
+		case line : IrcIncomingLine if queue.size < 20 =>
+			queue += line
+		case line : IrcIncomingLine =>
+			user.killImmidiately("HUPPS")
+		case _ =>
+		// ignore
+	}
+}
+
+class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging {
 	// registration part
 	var nickSet = false
 	var loggedIn = false

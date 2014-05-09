@@ -2,11 +2,12 @@ package de.abbaddie.rirc.connector.irc
 
 import scala.collection.mutable
 import grizzled.slf4j.Logging
+import de.abbaddie.rirc.main.Server
 
 object IrcQueueHandler extends Logging {
 	private var counter = 0
 	private val counters = mutable.Map[IrcUser, Int]()
-	private var limit = 1000
+	private val limit = 10000
 
 	def inc(user : IrcUser) = add(user, 1)
 
@@ -15,14 +16,15 @@ object IrcQueueHandler extends Logging {
 	def add(user : IrcUser, count : Int) : Unit = synchronized {
 		counters(user) += count
 		counter += count
-		maybeKillSomeone()
+		//maybeKillSomeone()
 	}
 
 	def sub(user : IrcUser, count : Int) = add(user, -count)
+	
+	def rm(user : IrcUser) = synchronized { sub(user, counters(user)) }
 
 	def kill(user : IrcUser) = synchronized {
 		info("killing " + user + ", worth " + counters(user) + " of " + counter)
-		sub(user, counters(user))
 		user.killImmidiately("Nachrichtenpuffer voll!")
 	}
 
@@ -31,12 +33,18 @@ object IrcQueueHandler extends Logging {
 	}
 
 	def killSomeone() = synchronized {
-		kill(counters.maxBy(_._2)._1)
+		kill(counters.filter(_._1.authacc.fold(true)(!_.isOper)).maxBy(_._2)._1)
 	}
 
 	def touch(user : IrcUser) = synchronized { counters += (user -> 0)}
 
 	def get = synchronized { counter }
+	
+	def getFast = counter
 
 	def isOk = synchronized { counter <= limit }
+
+	import concurrent.duration._
+	implicit val dispatcher = Server.actorSystem.dispatcher
+	Server.actorSystem.scheduler.schedule(1 second, 1 second)(warn("buffer size: " + get))
 }

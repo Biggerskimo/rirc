@@ -47,6 +47,8 @@ class IrcSocketConnector extends DefaultRircModule with Connector with Logging {
 		bootstrap.childOption[AnyRef](ChannelOption.WRITE_BUFFER_HIGH_WATER_MARK.asInstanceOf[ChannelOption[AnyRef]], 2048.asInstanceOf[AnyRef])
 		bootstrap.bind(IrcConstants.PORT).sync()
 	}
+	
+	def queueLength = IrcQueueHandler.getFast
 
 	implicit def toChannelBuffer(c : Char) : ByteBuf = Unpooled.wrappedBuffer(Array(c.toByte))
 	implicit def toChannelBuffer(s : String) : ByteBuf = Unpooled.wrappedBuffer(s.toCharArray.map(_.toByte))

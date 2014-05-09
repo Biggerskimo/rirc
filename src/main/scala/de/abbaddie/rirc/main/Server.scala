@@ -6,6 +6,7 @@ import de.abbaddie.rirc.service.{ChannelProvider, AuthProvider}
 import grizzled.slf4j.Logging
 import com.typesafe.config.Config
 import de.abbaddie.rirc.main.Message._
+import de.abbaddie.rirc.connector.Connector
 
 object Server {
 	var actorSystem : ActorSystem = null
@@ -13,6 +14,8 @@ object Server {
 	val eventBus = new RircEventBus
 	val events = eventBus
 	var config : Config = null
+	var connectors = List[Connector]()
+	var maxQueueSize = 1000000
 
 	var authProvider : AuthProvider = null
 	var authSys : ActorRef = null
@@ -39,6 +42,8 @@ object Server {
 			case '^' => '~'
 			case c => c
 		})
+	
+	def isQueueFull = connectors.map(_.queueLength).sum >= maxQueueSize
 }
 
 object TargetHelper {
