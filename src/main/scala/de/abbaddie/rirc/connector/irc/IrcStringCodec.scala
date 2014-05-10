@@ -13,6 +13,7 @@ class IrcStringCodec(val charsets : Seq[String]) extends MessageToMessageCodec[B
 	var charset : Charset = null
 	var decoder : CharsetDecoder = null
 	var encoder : CharsetEncoder = null
+	var utf8Encoder : CharsetEncoder = Charset.forName("UTF-8").newEncoder()
 
 	def setCharset(charset2 : String) : Unit = setCharset(Charset.forName(charset2))
 	def setCharset(charset2 : Charset) : Unit = {
@@ -32,13 +33,19 @@ class IrcStringCodec(val charsets : Seq[String]) extends MessageToMessageCodec[B
 		}
 		catch {
 			case e : CharacterCodingException =>
-				tryNextCharset()
-				decode(ctx, msg, out)
+				if(charsetIter.hasNext) {
+					tryNextCharset()
+					decode(ctx, msg, out)
+				}
 		}
 	}
 
 	def encode(ctx: ChannelHandlerContext, msg: String, out: util.List[AnyRef]) {
-		out.add(Unpooled.wrappedBuffer(encoder.encode(CharBuffer.wrap(msg))))
+		try out.add(Unpooled.wrappedBuffer(encoder.encode(CharBuffer.wrap(msg))))
+		catch {
+			case ex : UnmappableCharacterException =>
+				out.add(Unpooled.wrappedBuffer(utf8Encoder.encode(CharBuffer.wrap(msg))))
+		}
 	}
 
 	tryNextCharset()
