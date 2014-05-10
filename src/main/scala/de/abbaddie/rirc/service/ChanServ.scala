@@ -179,7 +179,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 				regex.replaceAllIn(string, replacement)
 		}
 		if(!isManaged && !newStr.startsWith("register")) {
-			Server.events ! PrivateNoticeMessage(suser, user, "Der Kanal ist nicht registriert!")
+			Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Der Kanal ist nicht registriert!")
 		}
 		else {
 			processServiceRequest(user)(newStr.split(" "))
@@ -189,35 +189,35 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 	def processServiceRequest(user : User) : PartialFunction[Array[String], Unit] = {
 		case Array("register", ownerName) =>
 			if(user.authacc.isEmpty || !user.isOper)
-				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Oper-Rechte benötigt.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Oper-Rechte benötigt.")
 			else if(channel.isRegistered)
-				Server.events ! PrivateNoticeMessage(suser, user, "Der Channel ist bereits registriert.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Der Channel ist bereits registriert.")
 			else {
 				resolveAccount(ownerName) match {
 					case Some(account) =>
 						Server.channelProvider.register(channel, account, user.authacc.get)
 						resync()
-						Server.events ! PrivateNoticeMessage(suser, user, "Der Channel wurde registriert.")
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Der Channel wurde registriert.")
 					case None =>
-						Server.events ! PrivateNoticeMessage(suser, user, "Der Account zu " + ownerName + " wurde nicht gefunden.")
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Der Account zu " + ownerName + " wurde nicht gefunden.")
 				}
 			}
 
 		case Array("resync") =>
 			if(!checkOp(user))
-				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Op-Rechte benötigt.")
 			else {
 				resync()
-				Server.events ! PrivateNoticeMessage(suser, user, "Der Privilegiencheck wurde ausgeführt.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Der Privilegiencheck wurde ausgeführt.")
 			}
 
 		case Array("users") =>
-			Server.events ! PrivateNoticeMessage(suser, user, "Owner: " + desc.owner)
-			Server.events ! PrivateNoticeMessage(suser, user, "Ops: " + desc.ops.mkString(" "))
-			Server.events ! PrivateNoticeMessage(suser, user, "Voices: " + desc.voices.mkString(" "))
+			Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Owner: " + desc.owner)
+			Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Ops: " + desc.ops.mkString(" "))
+			Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Voices: " + desc.voices.mkString(" "))
 
 		case Array("addop", name) =>
-			userChange(user, name, desc => desc.addOp , "Der User wurde zur Op-Liste hinzugefügt.")
+			userChange(user, name, desc => desc.addOp, "Der User wurde zur Op-Liste hinzugefügt.")
 
 		case Array("addvoice", name) =>
 			userChange(user, name, desc => desc.addVoice, "Der User wurde zur Voice-Liste hinzugefügt.")
@@ -226,10 +226,10 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			userChange(user, name, desc => desc.rmOp, "Der User wurde aus der Op-Liste entfernt.")
 
 		case Array("rmvoice", name) =>
-			userChange(user, name, desc => desc.rmVoice, "Der User wurde aus der Voice-Liste entfernt.")
+			userChange(user, name, desc => desc.rmVoice, " Der User wurde aus der Voice-Liste entfernt.")
 
 		case Array("god") =>
-			Server.events ! PrivateNoticeMessage(suser, user, "God: Biggerskimo")
+			Server.events ! PrivateNoticeMessage(suser, user, channel.name + " God: Biggerskimo")
 
 		case Array("ping") =>
 			Server.events ! PublicTextMessage(channel, suser, user.nickname + ": " + "Pong!")
@@ -245,21 +245,21 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 
 		case Array("part") =>
 			if(user.authacc.isEmpty || !user.isOper)
-				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Oper-Rechte benötigt.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Oper-Rechte benötigt.")
 			else {
 				Server.events ! PartMessage(channel, suser, None)
 			}
 
 		case Array("set") | Array("set", "topicmask") =>
 			if(!checkOp(user))
-				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Op-Rechte benötigt.")
 			else {
 				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " \02topicmask\02: " + desc.getAdditional("topicmask").getOrElse("*"))
 			}
 
 		case Array("set", "topicmask", rest @_*) =>
 			if(!checkOp(user))
-				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Op-Rechte benötigt.")
 			else {
 				desc.setAdditional("topicmask", rest.mkString(" "))
 				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " \02topicmask\02: " + desc.getAdditional("topicmask").getOrElse("*"))
@@ -267,7 +267,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 
 		case Array("topic", rest @_*) =>
 			if(!checkOp(user))
-				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Op-Rechte benötigt.")
 			else {
 				val topicInner = rest.mkString(" ")
 				if(desc.getAdditional("topicmask").isDefined) {
@@ -280,12 +280,12 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 		case Array("invite", inviteds @_*) =>
 			inviteds.foreach { invited => Server.users.get(invited) match {
 				case Some(user2) if channel.users.contains(user2) =>
-					Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " ist bereits im Channel.")
+					Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Benutzer " + invited + " ist bereits im Channel.")
 				case Some(user2) =>
 					Server.events ! InvitationMessage(channel, user, user2)
-					Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " eingeladen.")
+					Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Benutzer " + invited + " eingeladen.")
 				case None =>
-					Server.events ! PrivateNoticeMessage(suser, user, "Benutzer " + invited + " nicht gefunden.")
+					Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Benutzer " + invited + " nicht gefunden.")
 				}
 			}
 
@@ -308,7 +308,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			val kickedOpt = Server.users.get(name)
 			
 			if(!checkOp(user)) {
-				Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt, um andere User zu kicken.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Op-Rechte benötigt, um andere User zu kicken.")
 			}
 			else {
 				kickedOpt match {
@@ -316,9 +316,9 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 						if(rest.isEmpty) Server.events ! KickMessage(channel, suser, kicked, Some(user.nickname))
 						else Server.events ! KickMessage(channel, suser, kicked, Some(user.nickname + ": " + rest.mkString(" ")))
 					case Some(kicked) =>
-						Server.events ! PrivateNoticeMessage(suser, user, s"Der Benutzer $name ist nicht in ${channel.name}")
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + s" Der Benutzer $name ist nicht in ${channel.name}")
 					case _ =>
-						Server.events ! PrivateNoticeMessage(suser, user, s"Der Benutzer $name wurde auf dem Server nicht gefunden.")
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + s" Der Benutzer $name wurde auf dem Server nicht gefunden.")
 				}
 			}
 
@@ -330,7 +330,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			
 		case Array("uset", setting, rest @ _*) =>
 			if(!usettings.contains(setting)) {
-				Server.events ! PrivateNoticeMessage(suser, user, "Das ist keine gültige Einstellung.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Das ist keine gültige Einstellung.")
 			}
 			else {
 				user.authacc match {
@@ -340,7 +340,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 						setUserSetting(authacc, setting, rest.mkString(" "))
 						showUserSetting(user, setting)
 					case None =>
-						Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht angemeldet.")
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Du bist nicht angemeldet.")
 				}
 			}
 
@@ -349,11 +349,11 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 				case Some(authacc) =>
 					usettings.foreach(showUserSetting(user, _))
 				case None =>
-					Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht angemeldet.")
+					Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Du bist nicht angemeldet.")
 			}
 			
 		case Array("inviteme", name) =>
-			if(!user.authacc.isDefined) Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht eingeloggt.")
+			if(!user.authacc.isDefined) Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Du bist nicht eingeloggt.")
 			else {
 				val Some(acc) = user.authacc
 				(Server.channelProvider.registeredChannels get name, Server.channels get name) match {
@@ -362,11 +362,11 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 					case (Some(desc), Some(channel2)) if desc.owner == acc.id || desc.ops.contains(acc.id) || desc.voices.contains(acc.id) =>
 						Server.events ! InvitationMessage(channel2, suser, user)
 					case (Some(desc), Some(channel2)) =>
-						Server.events ! PrivateNoticeMessage(suser, user, s"Du hast keine Rechte in $name.")
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + s" Du hast keine Rechte in $name.")
 					case (None, Some(channel2)) =>
-						Server.events ! PrivateNoticeMessage(suser, user, s"Der Kanal $name ist nicht registriert.")
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + s" Der Kanal $name ist nicht registriert.")
 					case (_, None) =>
-						Server.events ! PrivateNoticeMessage(suser, user, s"Der Kanal $name ist nicht vorhanden.")
+						Server.events ! PrivateNoticeMessage(suser, user, channel.name + s" Der Kanal $name ist nicht vorhanden.")
 				}
 			}
 			
@@ -377,7 +377,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			if(user.isOper) Server.events ! PublicTextMessage(channel, suser, rest.mkString("\01ACTION ", " ", "\01"))
 			
 		case Array("help", _*) =>
-			Server.events ! PrivateNoticeMessage(suser, user, "Siehe <https://biggerskimo.github.io/rirc/>")
+			Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Siehe <https://biggerskimo.github.io/rirc/>")
 
 		case arr =>
 			error(s"illegal service request from $user: !" + arr.mkString(" "))
@@ -385,11 +385,11 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 
 	def privilegeChange(user : User, name : String, priv : Privilege, op : PrivilegeOperation) {
 		if(!checkOp(user))
-			Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+			Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Op-Rechte benötigt.")
 		else {
 			Server.users.get(name) match {
 				case Some(user2) if !channel.users.contains(user) =>
-					Server.events ! PrivateNoticeMessage(suser, user, s"Ich kann hier keinen $name finden.")
+					Server.events ! PrivateNoticeMessage(suser, user, channel.name + s" Ich kann hier keinen $name finden.")
 				case Some(user2) =>
 					Server.events ! PrivilegeChangeMessage(channel, user, user2, priv, op)
 			}
@@ -398,15 +398,15 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 
 	def userChange(user : User, name : String, todo : ChannelDescriptor => (String => Unit), message : String) {
 		if(!checkOp(user))
-			Server.events ! PrivateNoticeMessage(suser, user, "Es werden Op-Rechte benötigt.")
+			Server.events ! PrivateNoticeMessage(suser, user, channel.name + "Es werden Op-Rechte benötigt.")
 		else {
 			resolveAccount(name) match {
 				case Some(account) =>
 					todo(desc)(account.id)
 					checkUser(user, join = false, force = false)
-					Server.events ! PrivateNoticeMessage(suser, user, message)
+					Server.events ! PrivateNoticeMessage(suser, user, channel.name + " " + message)
 				case None =>
-					Server.events ! PrivateNoticeMessage(suser, user, "Der Account zu " + name + " wurde nicht gefunden.")
+					Server.events ! PrivateNoticeMessage(suser, user, channel.name + "Der Account zu " + name + " wurde nicht gefunden.")
 			}
 		}
 	}
@@ -525,7 +525,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 						Server.events ! PrivateNoticeMessage(suser, user, channel.name + " " + user.nickname + " \02" + key + "\02: \u001Dnot set\u001D")
 				}
 			case None =>
-				Server.events ! PrivateNoticeMessage(suser, user, "Du bist nicht eingeloggt.")
+				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Du bist nicht eingeloggt.")
 		}
 	}
 }
