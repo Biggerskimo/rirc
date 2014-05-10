@@ -347,7 +347,9 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 		case IrcIncomingLine("PRIVMSG", target, message) =>
 			Server.targets get target match {
 				case Some(channel : Channel) if !(channel.users contains user) =>
-					user.ds ! ERR_NOTONCHANNEL(channel)
+					user.ds ! ERR_CANNOTSENDTOCHAN(channel)
+				case Some(channel : Channel) if channel.isModerated && !channel.users(user).isOp && !channel.users(user).isVoice =>
+					user.ds ! ERR_CANNOTSENDTOCHAN(channel)
 				case Some(channel : Channel) =>
 					Server.eventBus.publish(PublicTextMessage(channel, user, message))
 				case Some(to : User) =>
@@ -452,7 +454,7 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 					user.ds ! ERR_USERONCHANNEL(channel, invited)
 				case (Some(invited), Some(channel)) if !(channel.users contains user) =>
 					user.ds ! ERR_NOTONCHANNEL(channel)
-				case (Some(invited), Some(channel)) if !UserUtil.checkOp(channel, user) =>
+				case (Some(invited), Some(channel)) if channel.isInviteOnly && !UserUtil.checkOp(channel, user) =>
 					user.ds ! ERR_CHANOPRIVSNEEDED(channel)
 				case (Some(invited), Some(channel)) =>
 					Server.events ! InvitationMessage(channel, user, invited)
@@ -469,22 +471,24 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 		case IrcIncomingLine("PONG", sth @ _*) =>
 			debug("received pong from " + user.nickname)
 
-		case IrcIncomingLine("KICK", cname, uname, rest @ _*) =>
-			(Server.channels get cname, Server.users get uname) match {
-				case (Some(channel), Some(kicked)) if !(channel.users contains user) =>
-					user.ds ! ERR_NOTONCHANNEL(channel)
-				case (Some(channel), Some(kicked)) if !(channel.users contains kicked) =>
-					user.ds ! ERR_NOSUCHNICK(kicked.nickname)
-				case (Some(channel), Some(kicked)) if !UserUtil.checkOp(channel, user) =>
-					user.ds ! ERR_CHANOPRIVSNEEDED(channel)
-				case (Some(channel), Some(kicked)) if !rest.isEmpty =>
-					Server.events ! KickMessage(channel, user, kicked, Some(rest.mkString(" ")))
-				case (Some(channel), Some(kicked)) =>
-					Server.events ! KickMessage(channel, user, kicked, None)
-				case (Some(_), None) =>
-					user.ds ! ERR_NOSUCHNICK(uname)
-				case (None, _) =>
-					user.ds ! ERR_NOSUCHCHANNEL(cname)
+		case IrcIncomingLine("KICK", cname, unames, rest @ _*) =>
+			unames.split(",").foreach { uname =>
+				(Server.channels get cname, Server.users get uname) match {
+					case (Some(channel), Some(kicked)) if !(channel.users contains user) =>
+						user.ds ! ERR_NOTONCHANNEL(channel)
+					case (Some(channel), Some(kicked)) if !(channel.users contains kicked) =>
+						user.ds ! ERR_NOSUCHNICK(kicked.nickname)
+					case (Some(channel), Some(kicked)) if !UserUtil.checkOp(channel, user) =>
+						user.ds ! ERR_CHANOPRIVSNEEDED(channel)
+					case (Some(channel), Some(kicked)) if !rest.isEmpty =>
+						Server.events ! KickMessage(channel, user, kicked, Some(rest.mkString(" ")))
+					case (Some(channel), Some(kicked)) =>
+						Server.events ! KickMessage(channel, user, kicked, None)
+					case (Some(_), None) =>
+						user.ds ! ERR_NOSUCHNICK(uname)
+					case (None, _) =>
+						user.ds ! ERR_NOSUCHCHANNEL(cname)
+				}
 			}
 
 		case IrcIncomingLine("NAMES") =>
@@ -532,6 +536,8 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 						handlePrivilegeChange(channel, queue.dequeue(), VOICE, SET)
 					case 'i' =>
 						Server.events ! ChannelModeChangeMessage(channel, user, INVITE_ONLY(yes = true))
+					case 'm' =>
+						Server.events ! ChannelModeChangeMessage(channel, user, MODERATED(yes = true))
 					case 'k' =>
 						Server.events ! ChannelModeChangeMessage(channel, user, PROTECTION(Some(queue.dequeue())))
 					case 'b' =>
@@ -549,6 +555,8 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 						handlePrivilegeChange(channel, queue.dequeue(), VOICE, UNSET)
 					case 'i' =>
 						Server.events ! ChannelModeChangeMessage(channel, user, INVITE_ONLY(yes = false))
+					case 'm' =>
+						Server.events ! ChannelModeChangeMessage(channel, user, MODERATED(yes = false))
 					case 'k' =>
 						Server.events ! ChannelModeChangeMessage(channel, user, PROTECTION(None))
 					case 'b' =>

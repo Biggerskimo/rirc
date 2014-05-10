@@ -110,4 +110,5 @@ object Message {
 	sealed class ChannelMode
 	case class INVITE_ONLY(yes : Boolean) extends ChannelMode
 	case class PROTECTION(password : Option[String]) extends ChannelMode
+	case class MODERATED(yes : Boolean) extends ChannelMode
 }

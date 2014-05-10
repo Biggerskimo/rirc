@@ -31,7 +31,8 @@ object Server {
 	def isValidNick(nick : String) =
 		nick.length >= config.getInt("nicklen_min") &&
 		nick.length <= config.getInt("nicklen_max") &&
-		nick.matches("^[A-Za-z_\\[\\]\\{\\}\\\\`\\|^][A-Za-z0-9_\\[\\]\\{\\}\\\\`\\|^-]*$")
+		nick.matches("^[A-Za-z_\\[\\]\\{\\}\\\\`\\|^][A-Za-z0-9_\\[\\]\\{\\}\\\\`\\|^-]*$") &&
+		nick != "anonymous" // http://tools.ietf.org/html/rfc2811#section-4.2.1
 
 	def nickToLowerCase(nick : String) =
 		nick.map({

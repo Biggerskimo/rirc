@@ -17,6 +17,7 @@ case class Channel(name : String) extends GenericTarget {
 	val creation = DateTime.now
 	var topic : Option[String] = None
 	var isInviteOnly = false
+	var isModerated = false
 	var invited : Set[User] = HashSet()
 	var protectionPassword : Option[String] = None
 	var bans : List[String] = Nil
@@ -72,6 +73,10 @@ class ChannelActor(val channel : Channel) extends Actor with Logging {
 
 		case ChannelModeChangeMessage(_, _, INVITE_ONLY(yes)) =>
 			channel.isInviteOnly = yes
+			sender ! Dummy
+
+		case ChannelModeChangeMessage(_, _, MODERATED(yes)) =>
+			channel.isModerated = yes
 			sender ! Dummy
 
 		case ChannelModeChangeMessage(_, _, PROTECTION(passwd)) =>

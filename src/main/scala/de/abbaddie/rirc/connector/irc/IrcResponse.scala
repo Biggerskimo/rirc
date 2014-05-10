@@ -192,6 +192,7 @@ object IrcResponse {
 	case class ERR_NOSUCHNICK(name : String) extends IrcServerResponse(401, "No such nick/channel", name)
 
 	case class ERR_NOSUCHCHANNEL(name : String) extends IrcServerResponse(403, "No such channel", name)
+	case class ERR_CANNOTSENDTOCHAN(channel : Channel) extends IrcServerResponse(404, "Cannot send to channel", channel.name)
 
 	case class ERR_UNKNOWNCOMMAND(command : String) extends IrcServerResponse(421, "Unknown command", command)
 	case class ERR_NOMOTD() extends IrcServerResponse(422, "MOTD File is missing")
