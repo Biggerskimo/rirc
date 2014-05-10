@@ -27,14 +27,14 @@ case object Tick
 class TimeoutManagedUserPingActor(val user : TimeoutManagedUser) extends Actor with Logging {
 	def receive = {
 		case Tick if user.dying && user.dies < DateTime.now =>
-			info("killing " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
+			trace("killing " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
  			Server.events ! QuitMessage(user, Some("Ping timeout"))
 		case Tick if user.dying =>
 			// wait ...
 		case Tick if user.lastActivity < DateTime.now - IrcConstants.TIMEOUT.toMillis =>
 			user.dies = DateTime.now + IrcConstants.TIMEOUT.toMillis
 			user.dying = true
-			debug("pinging " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
+			trace("pinging " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
 			user.sendPing()
 	}
 }

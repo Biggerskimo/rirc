@@ -469,7 +469,7 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 			user.ds ! RPL_USERHOST(names.map(Server.users.get).filter(_.isDefined).map(_.get) :_*)
 
 		case IrcIncomingLine("PONG", sth @ _*) =>
-			debug("received pong from " + user.nickname)
+			trace("received pong from " + user.nickname)
 
 		case IrcIncomingLine("KICK", cname, unames, rest @ _*) =>
 			unames.split(",").foreach { uname =>
