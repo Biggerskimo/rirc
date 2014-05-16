@@ -102,11 +102,11 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 		Server.channelProvider.registeredChannels.keys foreach { name =>
 			Server.channels get name match {
 				case Some(channel : Channel) if !channel.users.contains(suser) =>
-					join(channel)
+					join(channel, startup = true)
 				case None =>
 					val channel = new Channel(name)
 					Server.events ! ChannelCreationMessage(channel, suser)
-					join(channel)
+					join(channel, startup = true)
 			}
 			channelCount += 1
 		}
@@ -114,12 +114,18 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 		info(channelCount + " channels loaded.")
 	}
 
-	def join(channel : Channel) {
+	def join(channel : Channel, startup : Boolean = false) {
 		val actor = Server.actorSystem.actorOf(Props(classOf[ChanServChannelActor], suser, channel), name = "ChanServ" + channel.name.tail)
 
 		Server.events.subscribe(actor, ChannelClassifier(channel))
 
 		Server.events ! JoinMessage(channel, suser)
+
+		Server.channelProvider.registeredChannels(channel.name).getAdditional("topic") match {
+			case Some(topic) =>
+				Server.events ! TopicChangeMessage(channel, suser, channel.topic, topic)
+			case None =>
+		}
 	}
 }
 
@@ -153,6 +159,11 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			
 		case ServiceRequest(_, user, message) =>
 			processServiceRequest(user, message)
+			
+		case TopicChangeMessage(_, _, _, topic) =>
+			if(isManaged) {
+				desc.setAdditional("topic", topic)
+			}
 
 		case ConnectMessage(_) |
 			 QuitMessage(_, _) |
@@ -162,7 +173,6 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 			 NickchangeMessage(_, _, _) |
 			 PrivilegeChangeMessage(_, _, _, _, _) |
 			 PublicTextMessage(_, _, _) |
-			 TopicChangeMessage(_, _, _, _) | 
 			 RegistrationSuccess(_, _) |
 			 ChannelModeChangeMessage(_, _, _) |
 			 InvitationMessage(_, _, _) =>
