@@ -46,5 +46,8 @@ object IrcQueueHandler extends Logging {
 
 	import concurrent.duration._
 	implicit val dispatcher = Server.actorSystem.dispatcher
-	Server.actorSystem.scheduler.schedule(1 second, 1 second)(if(get > 0) warn("buffer size: " + get))
+	Server.actorSystem.scheduler.schedule(1 second, 1 second) {
+		val size = get
+		if(size > 0) warn("buffer size: " + size)
+	}
 }

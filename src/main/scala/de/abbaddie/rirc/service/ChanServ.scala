@@ -270,11 +270,9 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 				Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Op-Rechte benötigt.")
 			else {
 				val topicInner = rest.mkString(" ")
-				if(desc.getAdditional("topicmask").isDefined) {
-					val topicMask = desc.getAdditional("topicmask").getOrElse("*")
-					val topic = topicMask.replace("*", topicInner)
-					Server.events ! TopicChangeMessage(channel, user, channel.topic, topic)
-				}
+				val topicMask = desc.getAdditional("topicmask").getOrElse("*")
+				val topic = topicMask.replace("*", topicInner)
+				Server.events ! TopicChangeMessage(channel, user, channel.topic, topic)
 			}
 
 		case Array("invite", inviteds @_*) =>

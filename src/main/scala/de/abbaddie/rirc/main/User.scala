@@ -15,6 +15,9 @@ abstract class User extends GenericTarget {
 	def name = nickname
 	def fullString = nickname + "!~" + username + "@" + hostname
 	def extendedString = fullString + "#" + uid
+	
+	def channels = Server.channels.values.filter(_.users.contains(this))
+	def channelNames = channels.map(_.name).mkString(",")
 
 	override def hashCode = uid
 	override def equals(other : Any) = other match {
