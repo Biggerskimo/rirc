@@ -4,9 +4,8 @@ import akka.actor.{Props, ActorRef, Actor}
 import grizzled.slf4j.Logging
 import org.joda.time.DateTime
 import de.abbaddie.rirc.connector.irc.IrcConstants
-import org.scala_tools.time.Imports._
+import com.github.nscala_time.time.Imports._
 import de.abbaddie.rirc.main.Message.QuitMessage
-import scala.Some
 
 
 // TODO decouple from irc
@@ -27,14 +26,14 @@ case object Tick
 class TimeoutManagedUserPingActor(val user : TimeoutManagedUser) extends Actor with Logging {
 	def receive = {
 		case Tick if user.dying && user.dies < DateTime.now =>
-			trace("killing " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
+			trace("killing " + user.nickname + ", inactive for " + ((user.lastActivity to DateTime.now).millis / 1000) + "s")
  			Server.events ! QuitMessage(user, Some("Ping timeout"))
 		case Tick if user.dying =>
 			// wait ...
 		case Tick if user.lastActivity < DateTime.now - IrcConstants.TIMEOUT.toMillis =>
 			user.dies = DateTime.now + IrcConstants.TIMEOUT.toMillis
 			user.dying = true
-			trace("pinging " + user.nickname + ", inactive for " + ((DateTime.now.millis - user.lastActivity.millis) / 1000).round + "s")
+			trace("pinging " + user.nickname + ", inactive for " + ((user.lastActivity to DateTime.now).millis / 1000) + "s")
 			user.sendPing()
 	}
 }

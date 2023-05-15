@@ -1,6 +1,6 @@
 package de.abbaddie.rirc.connector.irc
 
-import akka.actor.IO.SocketHandle
+import akka.io.IO.SocketHandle
 import de.abbaddie.rirc.main.Server
 
 object IrcConnection {

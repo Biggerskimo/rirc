@@ -26,7 +26,7 @@ class YamlFileAuthProvider extends DefaultRircModule with AuthProvider with Back
 	def register(name: String, password: String, mail: String): Future[_] = {
 		accounts get name match {
 			case Some(_) =>
-				Future("Es ist bereits jemand unter dem Namen '" + name + "' registriert.")
+				Future.failed(new Exception(s"Es ist bereits jemand unter dem Namen '$name' registriert."))
 			case None =>
 				val acc = new YamlAuthAccount
 				acc.name = name
@@ -34,7 +34,7 @@ class YamlFileAuthProvider extends DefaultRircModule with AuthProvider with Back
 				acc.isOper = false
 				acc.emailAddress = mail
 				accounts += (name -> acc)
-				Future(new AuthAccount(name, false))
+				Future.successful(new AuthAccount(name, false))
 		}
 
 	}
@@ -42,30 +42,30 @@ class YamlFileAuthProvider extends DefaultRircModule with AuthProvider with Back
 	def isValid(name: String, password: String): Future[_] = {
 		accounts get name match {
 			case Some(account) if BCrypt.checkpw(password, account.hash) =>
-				Future(new AuthAccount(name, account.isOper))
+				Future.successful(new AuthAccount(name, account.isOper))
 			case Some(account) =>
-				Future("Das Passwort ist falsch.")
+				Future.successful("Das Passwort ist falsch.")
 			case None =>
-				Future("Der Account " + name + " wurde nicht gefunden.")
+				Future.failed(new Exception(s"Der Account $name wurde nicht gefunden."))
 		}
 	}
 	
 	def setPassword(name : String, password : String) : Future[String] = {
 		accounts get name match {
 			case Some(account) if BCrypt.checkpw(password, account.hash) =>
-				Future("Genau dieses Passwort war bereits gesetzt.")
+				Future.successful("Genau dieses Passwort war bereits gesetzt.")
 			case Some(account) =>
 				account.hash = BCrypt.hashpw(password, BCrypt.gensalt(12))
-				Future("Das Passwort wurde gesetzt.")
+				Future.successful("Das Passwort wurde gesetzt.")
 			case None =>
-				Future(s"Der Account $name wurde nicht gefunden.")
+				Future.failed(new Exception(s"Der Account $name wurde nicht gefunden."))
 		}
 	}
 
 	def lookup(name: String): Future[_] = {
 		accounts get name match {
-			case Some(account) => Future(account)
-			case None => Future("Es wurde kein Nutzer mit diesem Namen gefunden.")
+			case Some(account) => Future.successful(account)
+			case None => Future.failed(new Exception("Es wurde kein Nutzer mit diesem Namen gefunden."))
 		}
 	}
 

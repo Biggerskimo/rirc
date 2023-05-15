@@ -1,8 +1,7 @@
 package de.abbaddie.rirc.connector.irc
 
-import de.abbaddie.rirc.main.{Server, Channel, User}
+import de.abbaddie.rirc.main.{Channel, Server, User}
 import org.joda.time.DateTime
-import org.scala_tools.time.Imports._
 
 abstract class IrcResponse {
 	def toIrcOutgoingLine(user : IrcUser) : IrcOutgoingLine
@@ -72,12 +71,25 @@ object IrcResponse {
 
 	case class RPL_WHOISIDLE(user : User) extends IrcServerResponse(317, "seconds idle, signon time", user.nickname, ((DateTime.now.getMillis - user.lastActivity.getMillis) / 1000).round.toString, (user.signOn.getMillis / 1000).toString) // TODO
 	case class RPL_ENDOFWHOIS(user : User) extends IrcServerResponse(318, "End of /WHOIS list")
-	case class RPL_WHOISCHANNELS(user : User) extends IrcServerResponse(319,
-		Server.channels
-				.filter(_._2.users.contains(user))
-				.map({ e => (if(e._2.users(user).isOp) "@" else if(e._2.users(user).isVoice) "+" else "") + e._2.name })
+	
+	case class RPL_WHOISCHANNELS(user : User, channels : Iterable[Channel]) extends IrcServerResponse(319,
+		channels
+				.map({ chan => (if(chan.users(user).isOp) "@" else if(chan.users(user).isVoice) "+" else "") + chan.name })
 				.mkString(" "),
 		user.nickname)
+	object RPL_WHOISCHANNELS {
+		def apply(user : User, filter: Channel => Boolean) : RPL_WHOISCHANNELS = {
+			new RPL_WHOISCHANNELS(user, Server.channels.values
+					.filter(_.users.contains(user))
+					.filter(filter)
+			)
+		}
+		
+		def apply(user : User) : RPL_WHOISCHANNELS = apply(user, !_.isSecret)
+		
+		def apply(whoiser : User, whoised : User) : RPL_WHOISCHANNELS = 
+			apply(whoised, chan => !chan.isSecret || chan.users.contains(whoiser))
+	}
 	
 	case class RPL_LISTSTART() extends IrcServerResponse(321, "Name", "Channel", "Users") {
 		override def colonPos = 2
@@ -209,6 +221,7 @@ object IrcResponse {
 
 	case class ERR_NEEDMOREPARAMS() extends IrcServerResponse(461, "Not enough parameters")
 
+	case class ERR_UNKNOWNMODE(char : Char) extends IrcServerResponse(472, "is unknown mode char to me", char.toString)
 	case class ERR_INVITEONLYCHAN(channel : Channel) extends IrcServerResponse(473, "Cannot join channel (+i)", channel.name)
 	case class ERR_BANNEDFROMCHAN(channel : Channel) extends IrcServerResponse(474, "Cannot join channel (+b)", channel.name)
 	case class ERR_BADCHANNELKEY(channel : Channel) extends IrcServerResponse(475, "Cannot join channel (+k)", channel.name)

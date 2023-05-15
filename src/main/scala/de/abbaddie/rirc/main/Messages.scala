@@ -99,16 +99,17 @@ object Message {
 	case class UnbanMessage(channel : Channel, user : User, mask : String) extends Message with ChannelMessage
 
 
-	sealed class Privilege
+	sealed trait Privilege
 	case object VOICE extends Privilege
 	case object OP extends Privilege
 
-	sealed class PrivilegeOperation
+	sealed trait PrivilegeOperation
 	case object SET extends PrivilegeOperation
 	case object UNSET extends PrivilegeOperation
 
-	sealed class ChannelMode
+	sealed trait ChannelMode
 	case class INVITE_ONLY(yes : Boolean) extends ChannelMode
 	case class PROTECTION(password : Option[String]) extends ChannelMode
 	case class MODERATED(yes : Boolean) extends ChannelMode
+	case class SECRET(yes : Boolean) extends ChannelMode
 }

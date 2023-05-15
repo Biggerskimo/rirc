@@ -10,7 +10,11 @@ class AuthSystem extends Actor with Logging {
 
 	def receive = {
 		case AuthStart(user, name, password) =>
-			Server.authProvider.isValid(name, password) onSuccess {
+			Server.authProvider.isValid(name, password)
+			.recover {
+				case ex : Exception => ex.getMessage.asInstanceOf[AnyRef]
+			}
+			.onSuccess {
 				case acc: AuthAccount =>
 					Server.events ! AuthSuccess(user, acc)
 				case message : String =>
@@ -19,7 +23,11 @@ class AuthSystem extends Actor with Logging {
 					error("Invalid message from AuthProvider:" + ex)
 			}
 		case RegistrationStart(user, name, password, emailAddress) =>
-			Server.authProvider.register(name, password, emailAddress) onSuccess {
+			Server.authProvider.register(name, password, emailAddress)
+			.recover {
+				case ex : Exception => ex.getMessage.asInstanceOf[AnyRef]
+			}
+			.onSuccess {
 				case acc : AuthAccount =>
 					Server.events ! RegistrationSuccess(user, acc)
 				case message : String =>

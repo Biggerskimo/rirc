@@ -22,7 +22,9 @@ modules = {
 		host = ${host}
 		port = 6667
 		auth-nickname = "AuthServ"
-		charsets = ["UTF-8", "ISO-8859-1"]
+		charsets = ["UTF-8", "ISO-8859-1"],
+		
+		webirc-password = "KI6bOO6UTTdWwAo"
 	}
 	chanserv-default = {
 		used-as = ["addon"]

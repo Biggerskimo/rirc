@@ -1,22 +1,21 @@
 package de.abbaddie.rirc.connector.irc
 
+import java.net.InetSocketAddress
+import java.util.concurrent.TimeUnit
+
+import akka.actor.SupervisorStrategy.Resume
 import akka.actor._
 import akka.pattern.ask
-import io.netty.channel.{Channel => NettyChannel, ChannelFuture, ChannelFutureListener}
-import grizzled.slf4j.Logging
 import akka.util.Timeout
-import java.util.concurrent.TimeUnit
-import concurrent.Await
-import collection.mutable
-import java.net.InetSocketAddress
-import org.joda.time.DateTime
-import org.scala_tools.time.Imports._
 import de.abbaddie.rirc.Munin
-import scala.Some
-import de.abbaddie.rirc.main._
-import akka.actor.SupervisorStrategy.Resume
 import de.abbaddie.rirc.connector.irc.IrcResponse._
 import de.abbaddie.rirc.main.Message._
+import de.abbaddie.rirc.main._
+import grizzled.slf4j.Logging
+import io.netty.channel.{ChannelFuture, ChannelFutureListener, Channel => NettyChannel}
+
+import scala.collection.mutable
+import scala.concurrent.Await
 
 class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) extends TimeoutManagedUser {
 	def initActor() = Server.actorSystem.actorOf(Props(classOf[IrcUserSystemActor], this), name = uid.toString)
@@ -31,7 +30,7 @@ class IrcUser(val channel : NettyChannel, val address : InetSocketAddress) exten
 	var nickname = IrcConstants.UNASSIGNED_NICK
 	var username = IrcConstants.UNASSIGNED_USERNAME
 	var realname = IrcConstants.UNASSIGNED_REALNAME
-	val hostname = address.getHostName
+	var hostname = IrcHostRewriter.rewrite(address.getHostName)
 
 	// ensure ds + us
 	implicit val timeout = Timeout(1, TimeUnit.SECONDS)
@@ -147,6 +146,14 @@ class IrcUserSystemActor(val user : IrcUser) extends Actor with Logging {
 
 		case ChannelModeChangeMessage(channel, sender, PROTECTION(None)) =>
 			user.ds ! MSG_MODE(channel, sender, "-k")
+			
+		case ChannelModeChangeMessage(channel, sender, MODERATED(yes)) =>
+			val flag = if(yes) "+" else "-"
+			user.ds ! MSG_MODE(channel, sender, flag + "m")
+
+		case ChannelModeChangeMessage(channel, sender, SECRET(yes)) =>
+			val flag = if(yes) "+" else "-"
+			user.ds ! MSG_MODE(channel, sender, flag + "s")
 
 		case InvitationMessage(channel, inviter, invited) if invited == user =>
 			user.ds ! MSG_INVITE(channel, inviter)
@@ -225,6 +232,9 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 	}
 
 	def receiveStart : Receive = {
+		case IrcIncomingLine("WEBIRC", wpassword, _, hostname, ipStr) if wpassword == IrcConstants.config.getString("webirc-password") =>
+			user.hostname = hostname;
+			
 		case IrcIncomingLine("NICK", nickname) =>
 			if(Server.userNicks.contains(Server.nickToLowerCase(nickname)))
 				user.ds ! ERR_NICKNAMEINUSE(nickname)
@@ -427,7 +437,7 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 			Server.users get name match {
 				case Some(found) =>
 					user.ds ! RPL_WHOISUSER(found)
-					user.ds ! RPL_WHOISCHANNELS(found)
+					user.ds ! RPL_WHOISCHANNELS(user, found)
 					user.ds ! RPL_WHOISSERVER(found)
 					if (found.authacc.isDefined) user.ds ! RPL_WHOISACCOUNT(found)
 					user.ds ! RPL_WHOISIDLE(found)
@@ -480,7 +490,7 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 						user.ds ! ERR_NOSUCHNICK(kicked.nickname)
 					case (Some(channel), Some(kicked)) if !UserUtil.checkOp(channel, user) =>
 						user.ds ! ERR_CHANOPRIVSNEEDED(channel)
-					case (Some(channel), Some(kicked)) if !rest.isEmpty =>
+					case (Some(channel), Some(kicked)) if rest.nonEmpty =>
 						Server.events ! KickMessage(channel, user, kicked, Some(rest.mkString(" ")))
 					case (Some(channel), Some(kicked)) =>
 						Server.events ! KickMessage(channel, user, kicked, None)
@@ -502,7 +512,7 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 
 		case IrcIncomingLine("NAMES", name) =>
 			Server.channels get name match {
-				case Some(channel) =>
+				case Some(channel) if channel.users.contains(user) || user.isOper =>
 					user.ds ! RPL_NAMEREPLY(channel)
 					user.ds ! RPL_ENDOFNAMES(channel)
 				case None =>
@@ -511,7 +521,11 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 			
 		case IrcIncomingLine("LIST", namesStr @ _*) =>
 			val names = namesStr.headOption.getOrElse("").split(",")
-			val channels = if(namesStr.isEmpty) Server.channels.values else Server.channels.values.filter(chan => names.contains(chan.name))
+			var channels = Server.channels.values
+			if(namesStr.isEmpty) {
+				channels = channels.filter(chan => names.contains(chan.name))
+			}
+			channels.filter(chan => !chan.isSecret || chan.users.contains(user))
 			
 			user.ds ! RPL_LISTSTART()
 			channels.foreach(user.ds ! RPL_LIST(_))
@@ -540,8 +554,12 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 						Server.events ! ChannelModeChangeMessage(channel, user, MODERATED(yes = true))
 					case 'k' =>
 						Server.events ! ChannelModeChangeMessage(channel, user, PROTECTION(Some(queue.dequeue())))
+					case 's' =>
+						Server.events ! ChannelModeChangeMessage(channel, user, SECRET(yes = true))
 					case 'b' =>
 						Server.events ! BanMessage(channel, user, UserUtil.cleanMask(queue.dequeue()))
+					case other =>
+						user.ds ! ERR_UNKNOWNMODE(other)
 				}
 			case '-' =>
 				desc.tail foreach {
@@ -559,8 +577,12 @@ class IrcUserUpstreamHandleActor(val user : IrcUser) extends Actor with Logging 
 						Server.events ! ChannelModeChangeMessage(channel, user, MODERATED(yes = false))
 					case 'k' =>
 						Server.events ! ChannelModeChangeMessage(channel, user, PROTECTION(None))
+					case 's' =>
+						Server.events ! ChannelModeChangeMessage(channel, user, SECRET(yes = false))
 					case 'b' =>
 						Server.events ! UnbanMessage(channel, user, UserUtil.cleanMask(queue.dequeue()))
+					case other =>
+						user.ds ! ERR_UNKNOWNMODE(other)
 				}
 		}
 	}

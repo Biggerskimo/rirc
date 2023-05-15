@@ -1,18 +1,20 @@
 package de.abbaddie.rirc.service
 
-import de.abbaddie.rirc.main._
-import akka.actor.{Props, Actor, ActorRef}
-import grizzled.slf4j.Logging
-import akka.util.Timeout
 import java.util.concurrent.TimeUnit
-import concurrent.Await
-import de.abbaddie.rirc.main.Channel
-import scala.Some
+
+import akka.actor.{Actor, ActorRef, Props}
+import akka.util.Timeout
 import com.typesafe.config.Config
-import concurrent.duration._
 import de.abbaddie.rirc.main.Message._
+import de.abbaddie.rirc.main._
+import grizzled.slf4j.Logging
+
 import scala.collection.JavaConverters._
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.util.matching.Regex
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class ChanServ extends DefaultRircModule with RircAddon {
 	def init() {
@@ -121,9 +123,13 @@ class ChanServGeneralActor(val suser : User) extends Actor with Logging {
 
 		Server.events ! JoinMessage(channel, suser)
 
-		Server.channelProvider.registeredChannels(channel.name).getAdditional("topic") match {
-			case Some(topic) =>
-				Server.events ! TopicChangeMessage(channel, suser, channel.topic, topic)
+		Server.channelProvider.registeredChannels get channel.name match {
+			case Some(channelInfo) =>
+				channelInfo.getAdditional("topic") match {
+					case Some(topic) =>
+						Server.events ! TopicChangeMessage(channel, suser, channel.topic, topic)
+					case None =>
+				}
 			case None =>
 		}
 	}
@@ -406,7 +412,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 
 	def userChange(user : User, name : String, todo : ChannelDescriptor => (String => Unit), message : String) {
 		if(!checkOp(user))
-			Server.events ! PrivateNoticeMessage(suser, user, channel.name + "Es werden Op-Rechte benötigt.")
+			Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Es werden Op-Rechte benötigt.")
 		else {
 			resolveAccount(name) match {
 				case Some(account) =>
@@ -414,7 +420,7 @@ class ChanServChannelActor(val suser : ChanServUser, val channel : Channel) exte
 					checkUser(user, join = false, force = false)
 					Server.events ! PrivateNoticeMessage(suser, user, channel.name + " " + message)
 				case None =>
-					Server.events ! PrivateNoticeMessage(suser, user, channel.name + "Der Account zu " + name + " wurde nicht gefunden.")
+					Server.events ! PrivateNoticeMessage(suser, user, channel.name + " Der Account zu " + name + " wurde nicht gefunden.")
 			}
 		}
 	}
